@@ -3,6 +3,8 @@ from base64 import b64encode
 from nacl.signing import SigningKey
 from enum import Enum
 
+CUR_VERSION = 1
+
 
 class MessageType(Enum):
     AccountReq = 'ACCOUNT_REQ'
@@ -22,6 +24,7 @@ class Message:
     def to_dict(self) -> dict:
         from .account import AccountReq, AccountResp
         return {
+            'version': CUR_VERSION,
             'type': {
                 AccountReq: MessageType.AccountReq,
                 AccountResp: MessageType.AccountResp,

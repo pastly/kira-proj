@@ -31,6 +31,10 @@ class AccountReq(Message):
             Pubkey(b64decode(d['pk'].encode('utf-8'))),
         )
 
+    def __eq__(self, rhs):
+        return self.nick == rhs.nick \
+            and self.pk == rhs.pk
+
 
 class AccountResp(Message):
     def __init__(self):
