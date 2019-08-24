@@ -1,5 +1,6 @@
 import sqlite3
 import logging
+import nacl.signing
 
 log = logging.getLogger(__name__)
 
@@ -8,26 +9,23 @@ CREATE TABLE users (nick TEXT, pk Pubkey);
 '''
 
 
-class Pubkey:
-    def __init__(self, pk: int):
-        self.pk = pk
-
+class Pubkey(nacl.signing.VerifyKey):
     @staticmethod
     def sql_adapt(pk) -> bytes:
-        b = pk.pk.to_bytes(32, byteorder='big')
-        assert len(b) == 32
-        return b
+        # b = pk.pk.to_bytes(32, byteorder='big')
+        # assert len(b) == 32
+        # return b
+        return bytes(pk)
 
     @staticmethod
     def sql_convert(b: bytes):
-        assert len(b) == 32
-        return Pubkey(int.from_bytes(b, byteorder='big'))
+        # assert len(b) == 32
+        # return Pubkey(int.from_bytes(b, byteorder='big'))
+        return Pubkey(b)
 
     def __str__(self):
-        return 'Pubkey<{pk}>'.format(pk=self.pk)
-
-    def __eq__(self, rhs):
-        return self.pk == rhs.pk
+        return 'Pubkey<{pk}>'.format(
+            pk=int.from_bytes(bytes(self), byteorder='big'))
 
 
 class User:

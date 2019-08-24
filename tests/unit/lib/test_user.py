@@ -11,13 +11,15 @@ NICK_VALS = {
 
 def test_pubkey_init():
     for v in PK_VALS:
-        pk = Pubkey(v)
-        assert pk.pk == v
+        v_bytes = v.to_bytes(32, byteorder='big')
+        pk = Pubkey(v_bytes)
+        assert bytes(pk) == v_bytes
 
 
 def test_pubkey_adapt():
     for v in PK_VALS:
-        pk = Pubkey(v)
+        v_bytes = v.to_bytes(32, byteorder='big')
+        pk = Pubkey(v_bytes)
         b = Pubkey.sql_adapt(pk)
         assert len(b) == 32
         assert int.from_bytes(b, byteorder='big') == v
@@ -25,20 +27,20 @@ def test_pubkey_adapt():
 
 def test_pubkey_convert():
     for v in PK_VALS:
-        b = v.to_bytes(32, byteorder='big')
-        pk = Pubkey.sql_convert(b)
-        assert pk == Pubkey(v)
+        v_bytes = v.to_bytes(32, byteorder='big')
+        pk = Pubkey.sql_convert(v_bytes)
+        assert pk == Pubkey(v_bytes)
 
 
 def test_pubkey_str():
-    for v in PK_VALS:
-        s = 'Pubkey<%d>' % (v,)
+    for v in [v.to_bytes(32, byteorder='big') for v in PK_VALS]:
+        s = 'Pubkey<%d>' % (int.from_bytes(v, byteorder='big'),)
         assert str(Pubkey(v)) == s
 
 
 def test_user_init():
     for n in NICK_VALS:
-        for pk in [Pubkey(pk) for pk in PK_VALS]:
+        for pk in [Pubkey(v.to_bytes(32, byteorder='big')) for v in PK_VALS]:
             u = User(n, pk)
             assert u.nick == n
             assert u.pk == pk
@@ -47,7 +49,7 @@ def test_user_init():
 
 def test_user_str():
     for n in NICK_VALS:
-        for pk in [Pubkey(pk) for pk in PK_VALS]:
+        for pk in [Pubkey(v.to_bytes(32, byteorder='big')) for v in PK_VALS]:
             s = 'User<%s %s %s>' % (None, n, pk)
             u = User(n, pk)
             assert str(u) == s
@@ -55,7 +57,7 @@ def test_user_str():
 
 def test_user_from_dict():
     for n in NICK_VALS:
-        for pk in [Pubkey(pk) for pk in PK_VALS]:
+        for pk in [Pubkey(v.to_bytes(32, byteorder='big')) for v in PK_VALS]:
             u_expect = User(n, pk)
             u_actual = User.from_dict({'nick': n, 'pk': pk})
             assert u_expect == u_actual

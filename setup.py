@@ -9,6 +9,7 @@ import os
 here = os.path.abspath(os.path.dirname(__file__))
 pkg_name = 'ugh'
 
+
 def long_description():
     with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
         return f.read()
@@ -79,6 +80,7 @@ setup(
         ]
     },
     install_requires=[
+        'pynacl',
     ],
     extras_require={
         'test': ['pytest', 'coverage'],

@@ -21,8 +21,10 @@ def main(args, conf):
     if not success:
         return 1
     assert db_conn
-    db.insert_user(db_conn, user.User('Jim', user.Pubkey(4398198798573948732)))
-    db.insert_user(db_conn, user.User('Sam', user.Pubkey(8213948723986128967)))
+    pk1 = (973495827942749234).to_bytes(32, byteorder='big')
+    pk2 = (98723948672836472898479).to_bytes(32, byteorder='big')
+    db.insert_user(db_conn, user.User('Jim', user.Pubkey(pk1)))
+    db.insert_user(db_conn, user.User('Sam', user.Pubkey(pk2)))
     for u in db.get_users(db_conn):
         log.debug('%s', u)
     return 0
