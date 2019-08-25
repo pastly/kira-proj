@@ -1,6 +1,7 @@
 from ugh.lib.messages import Stub, SignedMessage, EncryptedMessage
 from ugh.lib.crypto import Seckey, Enckey
 import pytest
+import nacl
 
 
 SK = Seckey((28379873947).to_bytes(32, byteorder='big'))
@@ -31,6 +32,13 @@ def test_signedmessage_malformed():
         sm.unwrap()
     with pytest.raises(AssertionError):
         sm.msg
+
+
+def test_encryptmessage_malformed():
+    em = EncryptedMessage.enc(Stub(420), EK)
+    em.ctext_nonce = b'nnnnnnnnnnnnnnnnnnnnnnnncccccccc'
+    with pytest.raises(nacl.exceptions.CryptoError):
+        em.dec(EK)
 
 
 def test_encryptmessage_dict_identity_1():
