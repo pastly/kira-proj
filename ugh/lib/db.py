@@ -1,8 +1,8 @@
 import os
 import logging
 import sqlite3
-from typing import Iterator
-from .user import User
+from typing import Iterator, Optional
+from .user import User, Pubkey
 
 log = logging.getLogger(__name__)
 
@@ -41,3 +41,13 @@ def get_users(conn: sqlite3.Connection) -> Iterator[User]:
         if not ret:
             return
         yield User.from_row(ret)
+
+
+def user_with_pk(conn: sqlite3.Connection, pk: Pubkey) -> Optional[User]:
+    q = 'SELECT rowid, * from users WHERE pk=?'
+    c = conn.execute(q, (pk,))
+    ret = c.fetchall()
+    assert len(ret) == 0 or len(ret) == 1
+    if not len(ret):
+        return None
+    return User.from_row(ret[0])

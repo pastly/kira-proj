@@ -5,7 +5,7 @@ import nacl.signing
 log = logging.getLogger(__name__)
 
 DB_SCHEMA = '''
-CREATE TABLE users (nick TEXT, pk Pubkey);
+CREATE TABLE users (nick TEXT NOT NULL, pk Pubkey UNIQUE);
 '''
 
 
@@ -26,6 +26,16 @@ class Pubkey(nacl.signing.VerifyKey):
     def __str__(self):
         return 'Pubkey<{pk}>'.format(
             pk=int.from_bytes(bytes(self), byteorder='big'))
+
+
+class Seckey(nacl.signing.SigningKey):
+    @property
+    def pubkey(self):
+        return Pubkey(bytes(self.verify_key))
+
+    def __str__(self):
+        return 'Seckey<{k}>'.format(
+            k=int.from_bytes(bytes(self), byteorder='big'))
 
 
 class User:
