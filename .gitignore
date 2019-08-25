@@ -1,6 +1,7 @@
 __pycache__/
 .coverage
 .mypy_cache/
+.mypy_out/
 .tox/
 htmlcov/
 *.egg-info/
