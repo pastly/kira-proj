@@ -1,13 +1,14 @@
 from ugh.lib import db
 from ugh.lib import user
+from ugh.lib import crypto
 from ugh.lib.messages import Stub, SignedMessage, account
 from ugh.core import server
 
 
-SK1 = user.Seckey((111).to_bytes(32, byteorder='big'))
-SK2 = user.Seckey((222).to_bytes(32, byteorder='big'))
+SK1 = crypto.Seckey((111).to_bytes(32, byteorder='big'))
+SK2 = crypto.Seckey((222).to_bytes(32, byteorder='big'))
 
-server.SECKEY = user.Seckey((98734982984).to_bytes(32, byteorder='big'))
+server.IDKEY = crypto.Seckey((98734982984).to_bytes(32, byteorder='big'))
 
 def get_db():
     success, db_conn = db.connect(':memory:', server.DEF_SCHEMA)
@@ -19,7 +20,7 @@ def get_db():
 
 def test_account_req_resp_happy():
     db_conn = get_db()
-    sk = user.Seckey((333).to_bytes(32, byteorder='big'))
+    sk = crypto.Seckey((333).to_bytes(32, byteorder='big'))
     req = SignedMessage.sign(account.AccountReq('Saul3', sk.pubkey), sk)
     resp = server.handle_account_request(db_conn, req)
     assert resp.created
@@ -29,7 +30,7 @@ def test_account_req_resp_happy():
 
 def test_account_req_resp_malformed():
     db_conn = get_db()
-    sk = user.Seckey((333).to_bytes(32, byteorder='big'))
+    sk = crypto.Seckey((333).to_bytes(32, byteorder='big'))
     # Supposed to be signing an AccountReq, but instead signing a junk message
     req = SignedMessage.sign(Stub(420), sk)
     resp = server.handle_account_request(db_conn, req)
@@ -39,8 +40,8 @@ def test_account_req_resp_malformed():
 
 def test_account_req_resp_wrongpubkey():
     db_conn = get_db()
-    sk_wrong = user.Seckey((420).to_bytes(32, byteorder='big'))
-    sk = user.Seckey((333).to_bytes(32, byteorder='big'))
+    sk_wrong = crypto.Seckey((420).to_bytes(32, byteorder='big'))
+    sk = crypto.Seckey((333).to_bytes(32, byteorder='big'))
     u = user.User('Saul3', sk.pubkey)
     # sign the request with the wrong seckey so it can't verify with the
     # correct pubkey
@@ -53,7 +54,7 @@ def test_account_req_resp_wrongpubkey():
 
 def test_account_req_resp_badsig():
     db_conn = get_db()
-    sk = user.Seckey((333).to_bytes(32, byteorder='big'))
+    sk = crypto.Seckey((333).to_bytes(32, byteorder='big'))
     u = user.User('Saul3', sk.pubkey)
     req = SignedMessage.sign(account.AccountReq(u.nick, u.pk), sk)
     # change message after it has been signed so that it won't verify

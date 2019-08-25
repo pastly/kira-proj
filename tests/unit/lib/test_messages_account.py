@@ -1,6 +1,7 @@
 from ugh.lib.messages import account
 from ugh.lib.messages import Message, SignedMessage
-from ugh.lib.user import Pubkey, User, Seckey
+from ugh.lib.user import User
+from ugh.lib.crypto import Pubkey, Seckey
 from base64 import b64encode, b64decode
 
 U = User('Foo', Pubkey((1).to_bytes(32, byteorder='big')), rowid=420)

@@ -6,6 +6,7 @@ import sqlite3
 import nacl
 from ..lib import db
 from ..lib import user
+from ..lib import crypto
 from ..lib.messages.account import AccountReq, AccountResp, AccountRespErr,\
     AccountCred
 from ..lib.messages import SignedMessage
@@ -14,7 +15,7 @@ log = logging.getLogger(__name__)
 DEF_SCHEMA = user.DB_SCHEMA
 
 CRED_LIFETIME: float = 60 * 30  # 30 minutes, in seconds
-SECKEY: user.Seckey
+IDKEY: crypto.Seckey
 
 def gen_parser(sub):
     d = ''
@@ -41,23 +42,23 @@ def handle_account_request(
     u = user.User(req.nick, req.pk)
     u = db.insert_user(db_conn, u)
     cred = AccountCred.gen(u, CRED_LIFETIME)
-    scred = SignedMessage.sign(cred, SECKEY)
+    scred = SignedMessage.sign(cred, IDKEY)
     return AccountResp(True, scred, None)
 
 
 def main_gen_key():
-    sk = user.Seckey(bytes(nacl.signing.SigningKey.generate()))
-    sk_str = b64encode(bytes(sk)).decode('utf-8')
-    pk_str = b64encode(bytes(sk.pubkey)).decode('utf-8')
-    print('Generated secret key is', sk_str)
-    print('Generated public key is', pk_str)
+    idsk = crypto.Seckey(bytes(nacl.signing.SigningKey.generate()))
+    idsk_str = b64encode(bytes(idsk)).decode('utf-8')
+    idpk_str = b64encode(bytes(idsk.pubkey)).decode('utf-8')
+    print('Generated secret identity key is', idsk_str)
+    print('Generated public identity key is', idpk_str)
     print('Add the following to your config:')
-    print('[server]\nidentity = %s' % (sk_str,))
+    print('[server]\nidentity = %s' % (idsk_str,))
 
 
-def update_globals(conf, sk: user.Seckey):
-    global SECKEY
-    SECKEY = sk
+def update_globals(conf, sk: crypto.Seckey):
+    global IDKEY
+    IDKEY = sk
     if 'cred_lifetime' in conf['server']:
         global CRED_LIFETIME
         lifetime = conf.getfloat('server', 'cred_lifetime')
@@ -68,7 +69,7 @@ def update_globals(conf, sk: user.Seckey):
 def main(args, conf):
     if args.gen_key:
         return main_gen_key()
-    sk = user.Seckey(b64decode(conf['server']['identity']))
+    sk = crypto.Seckey(b64decode(conf['server']['identity']))
     update_globals(conf, sk)
     pk_str = b64encode(bytes(sk.pubkey)).decode('utf-8')
     log.info('My public key is %s', pk_str)
@@ -79,8 +80,8 @@ def main(args, conf):
     assert db_conn
     pk1 = (973495827942749234).to_bytes(32, byteorder='big')
     pk2 = (98723948672836472898479).to_bytes(32, byteorder='big')
-    db.insert_user(db_conn, user.User('Jim', user.Pubkey(pk1)))
-    db.insert_user(db_conn, user.User('Sam', user.Pubkey(pk2)))
+    db.insert_user(db_conn, user.User('Jim', crypto.Pubkey(pk1)))
+    db.insert_user(db_conn, user.User('Sam', crypto.Pubkey(pk2)))
     for u in db.get_users(db_conn):
         log.debug('%s', u)
     return 0

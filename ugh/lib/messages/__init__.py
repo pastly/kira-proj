@@ -1,7 +1,7 @@
 import nacl
 import json
 # import time
-from ..user import Seckey, Pubkey
+from ..crypto import Seckey, Pubkey
 from enum import Enum
 
 CUR_VERSION = 1
