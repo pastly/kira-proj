@@ -99,16 +99,15 @@ class SignedMessage:
         return {
             'version': CUR_VERSION,
             'type': MessageType.SignedMessage.value,
-            'msg': self.msg.to_dict(),
+            'msg': b64encode(self.msg_bytes).decode('utf-8'),
             'sig': b64encode(self.sig).decode('utf-8'),
             'pk': b64encode(bytes(self.pk)).decode('utf-8'),
         }
 
     @staticmethod
     def from_dict(d: dict) -> 'SignedMessage':
-        msg_bytes = json.dumps(d['msg']).encode('utf-8')
         return SignedMessage(
-            msg_bytes,
+            b64decode(d['msg']),
             b64decode(d['sig']),
             Pubkey(b64decode(d['pk'])))
 

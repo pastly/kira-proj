@@ -21,7 +21,6 @@ def test_encryptmessage_dict_identity_1():
 def test_encryptmessage_dict_identity_2():
     first = EncryptedMessage.enc(SignedMessage.sign(Stub(420), SK), EK)
     second = EncryptedMessage.from_dict(first.to_dict())
-    # print(first.dec(EK).to_dict())
     assert first == second
 
 
