@@ -27,7 +27,7 @@ class AccountReq(Message):
         return d
 
     @staticmethod
-    def from_dict(d: dict):
+    def from_dict(d: dict) -> 'AccountReq':
         return AccountReq(
             d['nick'],
             Pubkey(b64decode(d['pk'].encode('utf-8'))),
@@ -57,7 +57,7 @@ class AccountResp(Message):
         self.cred = 'ayy lmao'
 
     @staticmethod
-    def from_dict(d: dict):
+    def from_dict(d: dict) -> 'AccountResp':
         return AccountResp(
             d['created'],
             d['err'],

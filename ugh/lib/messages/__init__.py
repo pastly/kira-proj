@@ -20,22 +20,22 @@ class Message:
         ty = MessageType(d['type'])
         del d['type']
         return {
+            MessageType.Stub: lambda d:
+                Stub.from_dict(d),
             MessageType.AccountReq: lambda d:
                 account.AccountReq.from_dict(d),
             MessageType.AccountResp: lambda d:
                 account.AccountResp.from_dict(d),
-            MessageType.Stub: lambda d:
-                Stub.from_dict(d),
         }[ty](d)
 
     def to_dict(self) -> dict:
-        from .account import AccountReq, AccountResp
+        from ugh.lib.messages import account
         return {
             'version': CUR_VERSION,
             'type': {
-                AccountReq: MessageType.AccountReq,
-                AccountResp: MessageType.AccountResp,
                 Stub: MessageType.Stub,
+                account.AccountReq: MessageType.AccountReq,
+                account.AccountResp: MessageType.AccountResp,
             }[type(self)].value
         }
 
