@@ -1,7 +1,9 @@
 from argparse import ArgumentDefaultsHelpFormatter
 from typing import Optional
+from base64 import b64encode, b64decode
 import logging
 import sqlite3
+import nacl
 from ..lib import db
 from ..lib import user
 from ..lib.messages.account import AccountReq, AccountResp, AccountRespErr
@@ -13,9 +15,12 @@ DEF_SCHEMA = user.DB_SCHEMA
 
 def gen_parser(sub):
     d = ''
-    _ = sub.add_parser(
+    p = sub.add_parser(
         'server', description=d,
         formatter_class=ArgumentDefaultsHelpFormatter)
+    p.add_argument(
+        '--gen-key', action='store_true', help='Utility function. '
+        'Generate an identity key, print it, and quit.')
 
 
 def handle_account_request(
@@ -34,8 +39,20 @@ def handle_account_request(
     return AccountResp(True, None)
 
 
+def main_gen_key():
+    sk = user.Seckey(bytes(nacl.signing.SigningKey.generate()))
+    sk_str = b64encode(bytes(sk)).decode('utf-8')
+    pk_str = b64encode(bytes(sk.pubkey)).decode('utf-8')
+    print('Generated secret key is', sk_str)
+    print('Generated public key is', pk_str)
+    print('Add the following to your config:')
+    print('[server]\nidentity = %s' % (sk_str,))
+
+
 def main(args, conf):
-    log.info('server')
+    if args.gen_key:
+        return main_gen_key()
+    sk = user.Seckey(b64decode(conf['server']['identity']))
     success, db_conn = db.connect(
         conf['server']['db_fname'], schema=DEF_SCHEMA)
     if not success:

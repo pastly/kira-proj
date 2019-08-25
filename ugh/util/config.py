@@ -35,9 +35,17 @@ def _get_default_logging_config(c):
     return _extend_config(c, G.DEFAULT_LOG_CONFIG_PATH)
 
 
+def _get_user_config(c):
+    try:
+        return _extend_config(c, G.DEFAULT_USER_CONFIG_PATH)
+    except FileNotFoundError:
+        return c
+
+
 def get_config(args):
     c = _get_default_config()
     c = _get_default_logging_config(c)
+    c = _get_user_config(c)
     return c
 
 
