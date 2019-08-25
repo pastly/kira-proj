@@ -20,7 +20,7 @@ def test_account_req_resp_happy():
     db_conn = get_db()
     sk = user.Seckey((333).to_bytes(32, byteorder='big'))
     u = user.User('Saul3', sk.pubkey)
-    req = SignedMessage.sign_message(account.AccountReq(u.nick, u.pk), sk)
+    req = SignedMessage.sign(account.AccountReq(u.nick, u.pk), sk)
     resp = server.handle_account_request(db_conn, req)
     assert resp.created
     assert resp.err is None
@@ -30,7 +30,7 @@ def test_account_req_resp_malformed():
     db_conn = get_db()
     sk = user.Seckey((333).to_bytes(32, byteorder='big'))
     # Supposed to be signing an AccountReq, but instead signing a junk message
-    req = SignedMessage.sign_message(Stub(420), sk)
+    req = SignedMessage.sign(Stub(420), sk)
     resp = server.handle_account_request(db_conn, req)
     assert not resp.created
     assert resp.err == account.AccountRespErr.Malformed
@@ -43,7 +43,7 @@ def test_account_req_resp_wrongpubkey():
     u = user.User('Saul3', sk.pubkey)
     # sign the request with the wrong seckey so it can't verify with the
     # correct pubkey
-    req = SignedMessage.sign_message(
+    req = SignedMessage.sign(
         account.AccountReq(u.nick, u.pk), sk_wrong)
     resp = server.handle_account_request(db_conn, req)
     assert not resp.created
@@ -54,7 +54,7 @@ def test_account_req_resp_badsig():
     db_conn = get_db()
     sk = user.Seckey((333).to_bytes(32, byteorder='big'))
     u = user.User('Saul3', sk.pubkey)
-    req = SignedMessage.sign_message(account.AccountReq(u.nick, u.pk), sk)
+    req = SignedMessage.sign(account.AccountReq(u.nick, u.pk), sk)
     # change message after it has been signed so that it won't verify
     req.msg = b'foo'
     resp = server.handle_account_request(db_conn, req)
@@ -66,7 +66,7 @@ def test_account_req_resp_pubkeyexists():
     db_conn = get_db()
     # create user with a pubkey that is already in use by another user
     u = user.User('Saul3', SK1.pubkey)
-    req = SignedMessage.sign_message(account.AccountReq(u.nick, u.pk), SK1)
+    req = SignedMessage.sign(account.AccountReq(u.nick, u.pk), SK1)
     resp = server.handle_account_request(db_conn, req)
     assert not resp.created
     assert resp.err == account.AccountRespErr.PubkeyExists

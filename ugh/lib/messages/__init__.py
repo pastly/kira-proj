@@ -47,7 +47,7 @@ class SignedMessage:
         self.pk = pk
 
     @staticmethod
-    def sign_message(msg: Message, sk: Seckey) -> 'SignedMessage':
+    def sign(msg: Message, sk: Seckey) -> 'SignedMessage':
         m = json.dumps(msg.to_dict()).encode('utf-8')
         sig = sk.sign(m)
         return SignedMessage(sig.message, sig.signature, sk.pubkey)
