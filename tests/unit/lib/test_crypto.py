@@ -1,4 +1,4 @@
-from ugh.lib.crypto import Pubkey
+from ugh.lib.crypto import Pubkey, Enckey
 
 
 PK_VALS = {
@@ -33,3 +33,8 @@ def test_pubkey_str():
     for v in [v.to_bytes(32, byteorder='big') for v in PK_VALS]:
         s = 'Pubkey<%d>' % (int.from_bytes(v, byteorder='big'),)
         assert str(Pubkey(v)) == s
+
+
+def test_enckey_gen():
+    k = Enckey.gen()
+    assert len(bytes(k)) == 32

@@ -1,4 +1,6 @@
 import nacl.signing
+import nacl.secret
+import nacl.utils
 import sqlite3
 
 
@@ -29,6 +31,12 @@ class Seckey(nacl.signing.SigningKey):
     def __str__(self):
         return 'Seckey<{k}>'.format(
             k=int.from_bytes(bytes(self), byteorder='big'))
+
+
+class Enckey(bytes):
+    @staticmethod
+    def gen() -> 'Enckey':
+        return Enckey(nacl.utils.random(nacl.secret.SecretBox.KEY_SIZE))
 
 
 sqlite3.register_adapter(Pubkey, Pubkey.sql_adapt)

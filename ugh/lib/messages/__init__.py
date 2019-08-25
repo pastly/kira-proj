@@ -1,8 +1,10 @@
 import nacl
 import json
 # import time
-from ..crypto import Seckey, Pubkey
+from ..crypto import Seckey, Pubkey, Enckey
 from enum import Enum
+from typing import Union
+from base64 import b64encode, b64decode
 
 CUR_VERSION = 1
 
@@ -45,7 +47,7 @@ class Message:
 
 
 class SignedMessage:
-    def __init__(self, msg_bytes: bytes, sig: bytes, pk: Pubkey, msg: Message):
+    def __init__(self, msg_bytes: bytes, sig: bytes, pk: Pubkey):
         self.msg_bytes = msg_bytes
         self.sig = sig
         self.pk = pk
@@ -64,7 +66,7 @@ class SignedMessage:
         # d['sig_time'] = time.time()
         msg_bytes = json.dumps(d).encode('utf-8')
         sig = sk.sign(msg_bytes)
-        return SignedMessage(sig.message, sig.signature, sk.pubkey, msg)
+        return SignedMessage(sig.message, sig.signature, sk.pubkey)
 
     def verified_unwrap(self):
         if not self.is_valid():
@@ -82,6 +84,43 @@ class SignedMessage:
         return 'SignedMessage<{m} {pk} valid={v}>'.format(
             m=self.msg, pk=self.pk, v=self.is_valid())
 
+    def __eq__(self, rhs) -> bool:
+        return self.msg_bytes == rhs.msg_bytes \
+            and self.sig == rhs.sig \
+            and self.pk == rhs.pk
+
+    def to_dict(self) -> dict:
+        return {
+            'msg': self.msg.to_dict(),
+            'sig': b64encode(self.sig).decode('utf-8'),
+            'pk': b64encode(bytes(self.pk)).decode('utf-8'),
+        }
+
+    @staticmethod
+    def from_dict(d: dict) -> 'SignedMessage':
+        msg_bytes = json.dumps(d['msg']).encode('utf-8')
+        return SignedMessage(
+            msg_bytes,
+            b64decode(d['sig']),
+            Pubkey(b64decode(d['pk'])))
+
+
+class EncryptedMessage:
+    def __init__(self, ctext_nonce: bytes):
+        self.ctext_nonce = ctext_nonce
+
+    @staticmethod
+    def enc(
+            msg: Union[Message, SignedMessage],
+            k: Enckey) -> 'EncryptedMessage':
+        d = msg.to_dict()
+        msg_bytes = json.dumps(d).encode('utf-8')
+        box = nacl.secret.SecretBox(k)
+        return EncryptedMessage(box.encrypt(msg_bytes))
+
+    def dec(self, k: Enckey) -> Union[Message, SignedMessage]:
+        pass
+
 
 class Stub(Message):
     def __init__(self, i):
@@ -95,3 +134,6 @@ class Stub(Message):
     @staticmethod
     def from_dict(d: dict) -> 'Stub':
         return Stub(d['i'])
+
+    def __str__(self) -> str:
+        return 'Stub<%d>' % (self.i,)

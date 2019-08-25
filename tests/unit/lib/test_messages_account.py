@@ -1,5 +1,5 @@
 from ugh.lib.messages import account
-from ugh.lib.messages import Message, SignedMessage
+from ugh.lib.messages import Message, SignedMessage, Stub
 from ugh.lib.user import User
 from ugh.lib.crypto import Pubkey, Seckey
 from base64 import b64encode, b64decode
@@ -102,3 +102,9 @@ def test_accountcred_str():
     s = 'AccountCred<%s %s>' % (U, 1)
     ac = account.AccountCred(U, 1)
     assert str(ac) == s
+
+
+def test_signedmessage_dict_identity():
+    first = SignedMessage.sign(Stub(420), SK)
+    second = SignedMessage.from_dict(first.to_dict())
+    assert first == second
