@@ -1,4 +1,5 @@
 from ugh.lib.user import User, Pubkey
+from base64 import b64encode
 
 PK_VALS = {
     0, 3, 255, 256, 2897,
@@ -59,5 +60,6 @@ def test_user_from_dict():
     for n in NICK_VALS:
         for pk in [Pubkey(v.to_bytes(32, byteorder='big')) for v in PK_VALS]:
             u_expect = User(n, pk)
-            u_actual = User.from_dict({'nick': n, 'pk': pk})
+            pk_b64_bytes = b64encode(bytes(pk)).decode('utf-8')
+            u_actual = User.from_dict({'nick': n, 'pk': pk_b64_bytes})
             assert u_expect == u_actual

@@ -7,10 +7,14 @@ from .user import User, Pubkey
 log = logging.getLogger(__name__)
 
 
-def insert_user(conn: sqlite3.Connection, u: User):
+def insert_user(conn: sqlite3.Connection, u: User) -> User:
+    assert u.rowid is None
     q = 'INSERT INTO users VALUES (?, ?)'
-    conn.execute(q, (u.nick, u.pk))
+    c = conn.execute(q, (u.nick, u.pk))
     conn.commit()
+    u_out = user_with_id(conn, c.lastrowid)
+    assert u_out is not None
+    return u_out
 
 
 def connect(fname: str, schema=None):
@@ -46,6 +50,16 @@ def get_users(conn: sqlite3.Connection) -> Iterator[User]:
 def user_with_pk(conn: sqlite3.Connection, pk: Pubkey) -> Optional[User]:
     q = 'SELECT rowid, * from users WHERE pk=?'
     c = conn.execute(q, (pk,))
+    ret = c.fetchall()
+    assert len(ret) == 0 or len(ret) == 1
+    if not len(ret):
+        return None
+    return User.from_row(ret[0])
+
+
+def user_with_id(conn: sqlite3.Connection, id: int) -> Optional[User]:
+    q = 'SELECT rowid, * from users WHERE rowid=?'
+    c = conn.execute(q, (id,))
     ret = c.fetchall()
     assert len(ret) == 0 or len(ret) == 1
     if not len(ret):

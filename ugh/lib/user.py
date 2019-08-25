@@ -1,6 +1,7 @@
 import sqlite3
 import logging
 import nacl.signing
+from base64 import b64encode, b64decode
 
 log = logging.getLogger(__name__)
 
@@ -50,8 +51,16 @@ class User:
 
     @staticmethod
     def from_dict(d: dict):
+        pk = Pubkey(b64decode(d['pk']))
         return User(
-            d['nick'], d['pk'], rowid=d['rowid'] if 'rowid' in d else None)
+            d['nick'], pk, rowid=d['rowid'] if 'rowid' in d else None)
+
+    def to_dict(self) -> dict:
+        return {
+            'nick': self.nick,
+            'pk': b64encode(bytes(self.pk)).decode('utf-8'),
+            'rowid': self.rowid,
+        }
 
     def __str__(self):
         return 'User<{id} {n} {pk}>'.format(

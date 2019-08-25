@@ -1,9 +1,10 @@
 from base64 import b64encode, b64decode
-from ..user import Pubkey
-from . import Message
+from ..user import Pubkey, User
+from . import Message, SignedMessage
 import logging
 from typing import Optional
 from enum import Enum
+import time
 
 log = logging.getLogger(__name__)
 
@@ -47,21 +48,27 @@ class AccountRespErr(Enum):
 
 
 class AccountResp(Message):
-    def __init__(self, created: bool, err: Optional[AccountRespErr]):
+    def __init__(
+            self, created: bool,
+            cred: Optional[SignedMessage],
+            err: Optional[AccountRespErr]):
         if created:
             assert err is None
+            assert cred is not None
+            assert type(cred.msg) == AccountCred
         if not created:
             assert err is not None
+            assert cred is None
         self.created = created
+        self.cred = cred
         self.err = err
-        self.cred = 'ayy lmao'
 
     @staticmethod
     def from_dict(d: dict) -> 'AccountResp':
         return AccountResp(
             d['created'],
+            d['cred'],
             d['err'],
-            # d['cred'],
         )
 
     def to_dict(self) -> dict:
@@ -82,3 +89,41 @@ class AccountResp(Message):
         return 'AccountResp<created={c} err={e} cred={cred}>'.format(
             c=self.created, e=self.err, cred=self.cred,
         )
+
+
+class AccountCred(Message):
+    def __init__(self, user: User, expire: float):
+        assert user.rowid is not None
+        self.user = user
+        self.expire = expire  # timestamp it expires
+
+    @staticmethod
+    def gen(
+            user: User,
+            lifetime: float,  # duration, starting at *now*
+            now: Optional[float] = None) -> 'AccountCred':
+        if now is None:
+            now = time.time()
+        return AccountCred(user, now + lifetime)
+
+    @staticmethod
+    def from_dict(d: dict) -> 'AccountCred':
+        u = User.from_dict(d['user'])
+        return AccountCred(u, d['expire'])
+
+    def to_dict(self) -> dict:
+        d = {
+            'user': self.user.to_dict(),
+            'expire': self.expire,
+        }
+        d.update(super().to_dict())
+        return d
+
+    def __str__(self) -> str:
+        return 'AccountCred<{u} {e}>'.format(
+            u=self.user, e=self.expire,
+        )
+
+    def __eq__(self, rhs) -> bool:
+        return self.user == rhs.user \
+            and self.expire == rhs.expire
