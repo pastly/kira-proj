@@ -102,9 +102,3 @@ def test_accountcred_str():
     s = 'AccountCred<%s %s>' % (U, 1)
     ac = account.AccountCred(U, 1)
     assert str(ac) == s
-
-
-def test_signedmessage_dict_identity():
-    first = SignedMessage.sign(Stub(420), SK)
-    second = SignedMessage.from_dict(first.to_dict())
-    assert first == second

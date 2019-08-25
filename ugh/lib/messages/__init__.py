@@ -11,6 +11,8 @@ CUR_VERSION = 1
 
 class MessageType(Enum):
     Stub = 'STUB'  # for testing purposes
+    SignedMessage = 'SIGNED_MESSAGE'  # not a subclass of Message
+    EncryptedMessage = 'ENCRYPTED_MESSAGE'  # not a subclass of Message
     AccountReq = 'ACCOUNT_REQ'
     AccountResp = 'ACCOUNT_RESP'
     AccountCred = 'ACCOUNT_CRED'
@@ -25,6 +27,10 @@ class Message:
         return {
             MessageType.Stub: lambda d:
                 Stub.from_dict(d),
+            MessageType.SignedMessage: lambda d:
+                SignedMessage.from_dict(d),
+            MessageType.EncryptedMessage: lambda d:
+                EncryptedMessage.from_dict(d),
             MessageType.AccountReq: lambda d:
                 account.AccountReq.from_dict(d),
             MessageType.AccountResp: lambda d:
@@ -91,6 +97,8 @@ class SignedMessage:
 
     def to_dict(self) -> dict:
         return {
+            'version': CUR_VERSION,
+            'type': MessageType.SignedMessage.value,
             'msg': self.msg.to_dict(),
             'sig': b64encode(self.sig).decode('utf-8'),
             'pk': b64encode(bytes(self.pk)).decode('utf-8'),
@@ -111,15 +119,35 @@ class EncryptedMessage:
 
     @staticmethod
     def enc(
-            msg: Union[Message, SignedMessage],
+            msg: Union[Message, SignedMessage, 'EncryptedMessage'],
             k: Enckey) -> 'EncryptedMessage':
         d = msg.to_dict()
         msg_bytes = json.dumps(d).encode('utf-8')
         box = nacl.secret.SecretBox(k)
         return EncryptedMessage(box.encrypt(msg_bytes))
 
-    def dec(self, k: Enckey) -> Union[Message, SignedMessage]:
-        pass
+    def dec(
+            self, k: Enckey) -> \
+            Union[Message, SignedMessage, 'EncryptedMessage']:
+        b = nacl.secret.SecretBox(k)
+        msg_bytes = b.decrypt(self.ctext_nonce)
+        d = json.loads(msg_bytes)
+        return Message.from_dict(d)
+
+    @staticmethod
+    def from_dict(d: dict) -> 'EncryptedMessage':
+        ctext_nonce = b64decode(d['ctext_nonce'])
+        return EncryptedMessage(ctext_nonce)
+
+    def to_dict(self) -> dict:
+        return {
+            'version': CUR_VERSION,
+            'type': MessageType.EncryptedMessage.value,
+            'ctext_nonce': b64encode(bytes(self.ctext_nonce)).decode('utf-8'),
+        }
+
+    def __eq__(self, rhs) -> bool:
+        return self.ctext_nonce == rhs.ctext_nonce
 
 
 class Stub(Message):
@@ -137,3 +165,6 @@ class Stub(Message):
 
     def __str__(self) -> str:
         return 'Stub<%d>' % (self.i,)
+
+    def __eq__(self, rhs) -> bool:
+        return self.i == rhs.i
