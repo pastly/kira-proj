@@ -1,4 +1,4 @@
-from ugh.lib.location import Location
+from ugh.lib.location import Coords
 import pytest
 
 
@@ -17,21 +17,28 @@ TEST_COORDS_BAD = [
 ]
 
 
-def test_location_init_happy():
+def test_coords_init_happy():
     for lat, long in TEST_COORDS_GOOD:
-        loc = Location(lat, long)
+        loc = Coords(lat, long)
         assert loc.lat == lat
         assert loc.long == long
 
 
-def test_location_init_bad():
+def test_coords_init_bad():
     for lat, long in TEST_COORDS_BAD:
         with pytest.raises(AssertionError):
-            Location(lat, long)
+            Coords(lat, long)
 
 
-def test_location_str():
+def test_coords_str():
     for lat, long in TEST_COORDS_GOOD:
-        loc = Location(lat, long)
-        s = 'Location<lat=%d long=%d>' % (lat, long)
+        loc = Coords(lat, long)
+        s = 'Coords<lat=%d long=%d>' % (lat, long)
         assert str(loc) == s
+
+
+def test_coords_dict_identity():
+    for lat, long in TEST_COORDS_GOOD:
+        first = Coords(lat, long)
+        second = Coords.from_dict(first.to_dict())
+        assert first == second
