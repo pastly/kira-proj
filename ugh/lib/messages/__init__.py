@@ -1,6 +1,6 @@
 import nacl
 import json
-from base64 import b64encode
+# import time
 from ..user import Seckey, Pubkey
 from enum import Enum
 
@@ -48,7 +48,10 @@ class SignedMessage:
 
     @staticmethod
     def sign(msg: Message, sk: Seckey) -> 'SignedMessage':
-        m = json.dumps(msg.to_dict()).encode('utf-8')
+        d = msg.to_dict()
+        # assert 'sig_time' not in d
+        # d['sig_time'] = time.time()
+        m = json.dumps(d).encode('utf-8')
         sig = sk.sign(m)
         return SignedMessage(sig.message, sig.signature, sk.pubkey)
 
@@ -57,16 +60,10 @@ class SignedMessage:
             self.pk.verify(self.msg, self.sig)
         except nacl.exceptions.BadSignatureError:
             return False, None, None
-        return True, \
-            Message.from_dict(json.loads(self.msg.decode('utf-8'))), \
-            self.pk
-
-    def to_json_str(self) -> str:
-        return json.dumps({
-            'msg': b64encode(self.msg),
-            'sig': b64encode(self.sig),
-            'pk': b64encode(bytes(self.pk)),
-        })
+        d = json.loads(self.msg.decode('utf-8'))
+        # del d['sig_time']
+        m = Message.from_dict(d)
+        return True, m, self.pk
 
 
 class Stub(Message):
