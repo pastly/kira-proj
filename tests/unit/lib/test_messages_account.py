@@ -1,5 +1,5 @@
 from ugh.lib.messages import account
-from ugh.lib.messages import Message, SignedMessage, Stub
+from ugh.lib.messages import Message, SignedMessage
 from ugh.lib.user import User
 from ugh.lib.crypto import Pubkey, Seckey
 from base64 import b64encode, b64decode

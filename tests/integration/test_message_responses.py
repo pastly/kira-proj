@@ -10,6 +10,7 @@ SK2 = crypto.Seckey((222).to_bytes(32, byteorder='big'))
 
 server.IDKEY = crypto.Seckey((98734982984).to_bytes(32, byteorder='big'))
 
+
 def get_db():
     success, db_conn = db.connect(':memory:', server.DEF_SCHEMA)
     assert success

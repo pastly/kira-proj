@@ -1,5 +1,4 @@
 from argparse import ArgumentDefaultsHelpFormatter
-from typing import Optional
 from base64 import b64encode, b64decode
 import logging
 import sqlite3
@@ -11,11 +10,13 @@ from ..lib.messages.account import AccountReq, AccountResp, AccountRespErr,\
     AccountCred
 from ..lib.messages import SignedMessage
 
+
 log = logging.getLogger(__name__)
 DEF_SCHEMA = user.DB_SCHEMA
 
 CRED_LIFETIME: float = 60 * 30  # 30 minutes, in seconds
 IDKEY: crypto.Seckey
+
 
 def gen_parser(sub):
     d = ''

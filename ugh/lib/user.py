@@ -1,6 +1,5 @@
 import sqlite3
 import logging
-import nacl.signing
 from base64 import b64encode, b64decode
 from .crypto import Pubkey
 
