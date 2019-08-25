@@ -53,6 +53,8 @@ def main(args, conf):
     if args.gen_key:
         return main_gen_key()
     sk = user.Seckey(b64decode(conf['server']['identity']))
+    pk_str = b64encode(bytes(sk.pubkey)).decode('utf-8')
+    log.info('My public key is %s', pk_str)
     success, db_conn = db.connect(
         conf['server']['db_fname'], schema=DEF_SCHEMA)
     if not success:
