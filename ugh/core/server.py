@@ -31,9 +31,9 @@ def gen_parser(sub):
 def handle_account_request(
         db_conn: sqlite3.Connection, smsg: SignedMessage) \
         -> AccountResp:
-    verify, req, pk_used = smsg.verified_unwrap()
-    if not verify:
+    if not smsg.is_valid():
         return AccountResp(False, None, AccountRespErr.BadSig)
+    req, pk_used = smsg.unwrap()
     if not isinstance(req, AccountReq):
         return AccountResp(False, None, AccountRespErr.Malformed)
     if req.pk != pk_used:

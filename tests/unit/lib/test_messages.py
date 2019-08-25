@@ -1,5 +1,6 @@
 from ugh.lib.messages import Stub, SignedMessage, EncryptedMessage
 from ugh.lib.crypto import Seckey, Enckey
+import pytest
 
 
 SK = Seckey((28379873947).to_bytes(32, byteorder='big'))
@@ -10,6 +11,26 @@ def test_signedmessage_dict_identity():
     first = SignedMessage.sign(Stub(420), SK)
     second = SignedMessage.from_dict(first.to_dict())
     assert first == second
+
+
+def test_signedmessage_happy():
+    sm = SignedMessage.sign(Stub(420), SK)
+    assert sm.is_valid()
+    assert sm.msg == Stub(420)
+    assert sm.is_valid()
+    m, pk = sm.unwrap()
+    assert m == Stub(420)
+    assert pk == SK.pubkey
+
+
+def test_signedmessage_malformed():
+    sm = SignedMessage.sign(Stub(420), SK)
+    sm.msg_bytes = b'fooooo'
+    assert not sm.is_valid()
+    with pytest.raises(AssertionError):
+        sm.unwrap()
+    with pytest.raises(AssertionError):
+        sm.msg
 
 
 def test_encryptmessage_dict_identity_1():

@@ -3,7 +3,7 @@ import json
 # import time
 from ..crypto import Seckey, Pubkey, Enckey
 from enum import Enum
-from typing import Union
+from typing import Union, Tuple
 from base64 import b64encode, b64decode
 
 CUR_VERSION = 1
@@ -60,6 +60,7 @@ class SignedMessage:
 
     @property
     def msg(self) -> Message:
+        assert self.is_valid()
         d = json.loads(self.msg_bytes.decode('utf-8'))
         # del d['sig_time']
         m = Message.from_dict(d)
@@ -74,10 +75,9 @@ class SignedMessage:
         sig = sk.sign(msg_bytes)
         return SignedMessage(sig.message, sig.signature, sk.pubkey)
 
-    def verified_unwrap(self):
-        if not self.is_valid():
-            return False, None, None
-        return True, self.msg, self.pk
+    def unwrap(self) -> Tuple[Message, Pubkey]:
+        assert self.is_valid()
+        return self.msg, self.pk
 
     def is_valid(self):
         try:
