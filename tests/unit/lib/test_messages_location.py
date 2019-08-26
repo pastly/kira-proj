@@ -28,3 +28,10 @@ def test_locationupdate_str():
     lu = LocationUpdate(LOC, cred)
     s = 'LocationUpdate<%s %s>' % (LOC, cred)
     assert str(lu) == s
+
+
+def test_locationupdate_dict_identity():
+    cred = fake_cred()
+    first = LocationUpdate(LOC, cred)
+    second = LocationUpdate.from_dict(first.to_dict())
+    assert first == second

@@ -31,6 +31,27 @@ class Location:
             r=self.rowid, u=self.user, c=self.coords, t=self.time,
         )
 
+    def __eq__(self, rhs) -> bool:
+        return self.user == rhs.user \
+            and self.coords == rhs.coords \
+            and self.time == rhs.time \
+            and self.rowid == rhs.rowid
+
+    def to_dict(self) -> dict:
+        return {
+            'user': self.user.to_dict(),
+            'coords': self.coords.to_dict(),
+            'time': self.time,
+        }
+
+    @staticmethod
+    def from_dict(d: dict) -> 'Location':
+        return Location(
+            User.from_dict(d['user']),
+            Coords.from_dict(d['coords']),
+            d['time'],
+        )
+
 
 class Coords:
     def __init__(self, lat: float, long: float):

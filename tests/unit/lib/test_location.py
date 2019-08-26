@@ -1,6 +1,10 @@
-from ugh.lib.location import Coords
+from ugh.lib.location import Coords, Location
+from ugh.lib.user import User
+from ugh.lib.crypto import Pubkey
 import pytest
+import time
 
+U = User('Sam', Pubkey((1).to_bytes(32, byteorder='big')))
 
 TEST_COORDS_GOOD = [
     (44, 0), (-44, 0),
@@ -48,4 +52,13 @@ def test_coords_sql_identity():
     for lat, long in TEST_COORDS_GOOD:
         first = Coords(lat, long)
         second = Coords.sql_convert(Coords.sql_adapt(first))
+        assert first == second
+
+
+def test_location_dict_identity():
+    for lat, long in TEST_COORDS_GOOD:
+        now = time.time()
+        c = Coords(lat, long)
+        first = Location(U, c, now)
+        second = Location.from_dict(first.to_dict())
         assert first == second
