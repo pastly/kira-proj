@@ -1,13 +1,11 @@
-from ..user import User
-from ..location import Coords
-from . import Message
+from ..location import Location
+from . import Message, EncryptedMessage
 
 
 class LocationUpdate(Message):
-    def __init__(self, u: User, c: Coords, t: float):
-        self.user = u
-        self.coords = c
-        self.at = t
+    def __init__(self, loc: Location, cred: EncryptedMessage):
+        self.loc = loc
+        self.cred = cred
 
     def __str__(self) -> str:
-        return 'LocationUpdate<%s %s %s>' % (self.user, self.coords, self.at)
+        return 'LocationUpdate<%s %s>' % (self.loc, self.cred)

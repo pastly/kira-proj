@@ -16,12 +16,14 @@ class MessageType(Enum):
     AccountReq = 'ACCOUNT_REQ'
     AccountResp = 'ACCOUNT_RESP'
     AccountCred = 'ACCOUNT_CRED'
+    LocationUpdate = 'LOCATION_UPDATE'
 
 
 class Message:
     @staticmethod
     def from_dict(d: dict):
         from ugh.lib.messages import account
+        from ugh.lib.messages import location
         ty = MessageType(d['type'])
         del d['type']
         return {
@@ -37,10 +39,13 @@ class Message:
                 account.AccountResp.from_dict(d),
             MessageType.AccountCred: lambda d:
                 account.AccountCred.from_dict(d),
+            MessageType.LocationUpdate: lambda d:
+                location.LocationUpdate.from_dict(d),
         }[ty](d)
 
     def to_dict(self) -> dict:
         from ugh.lib.messages import account
+        from ugh.lib.messages import location
         return {
             'version': CUR_VERSION,
             'type': {
@@ -48,6 +53,7 @@ class Message:
                 account.AccountReq: MessageType.AccountReq,
                 account.AccountResp: MessageType.AccountResp,
                 account.AccountCred: MessageType.AccountCred,
+                location.LocationUpdate: MessageType.LocationUpdate,
             }[type(self)].value
         }
 
@@ -147,6 +153,10 @@ class EncryptedMessage:
 
     def __eq__(self, rhs) -> bool:
         return self.ctext_nonce == rhs.ctext_nonce
+
+    def __str__(self) -> str:
+        return 'EncryptedMessage<ctext_nonce=[%d bytes]>' % \
+            (len(self.ctext_nonce),)
 
 
 class Stub(Message):
