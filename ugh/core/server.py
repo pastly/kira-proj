@@ -5,14 +5,16 @@ import sqlite3
 import nacl
 from ..lib import db
 from ..lib import user
+from ..lib import location
 from ..lib import crypto
 from ..lib.messages.account import AccountReq, AccountResp, AccountRespErr,\
     AccountCred
 from ..lib.messages import SignedMessage
+import time
 
 
 log = logging.getLogger(__name__)
-DEF_SCHEMA = user.DB_SCHEMA
+DEF_SCHEMA = user.DB_SCHEMA + location.DB_SCHEMA
 
 CRED_LIFETIME: float = 60 * 30  # 30 minutes, in seconds
 IDKEY: crypto.Seckey
@@ -81,8 +83,16 @@ def main(args, conf):
     assert db_conn
     pk1 = (973495827942749234).to_bytes(32, byteorder='big')
     pk2 = (98723948672836472898479).to_bytes(32, byteorder='big')
-    db.insert_user(db_conn, user.User('Jim', crypto.Pubkey(pk1)))
-    db.insert_user(db_conn, user.User('Sam', crypto.Pubkey(pk2)))
+    u1 = db.insert_user(db_conn, user.User('Jim', crypto.Pubkey(pk1)))
+    u2 = db.insert_user(db_conn, user.User('Sam', crypto.Pubkey(pk2)))
     for u in db.get_users(db_conn):
         log.debug('%s', u)
+    loc1 = location.Location(u1, location.Coords(42, 69), time.time())
+    loc2 = location.Location(u2, location.Coords(89.9, 0), time.time())
+    loc3 = location.Location(u2, location.Coords(0, -4.1), time.time())
+    db.insert_location(db_conn, loc1)
+    db.insert_location(db_conn, loc2)
+    db.insert_location(db_conn, loc3)
+    for loc in db.get_locations(db_conn):
+        log.debug('%s', loc)
     return 0

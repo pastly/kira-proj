@@ -42,3 +42,10 @@ def test_coords_dict_identity():
         first = Coords(lat, long)
         second = Coords.from_dict(first.to_dict())
         assert first == second
+
+
+def test_coords_sql_identity():
+    for lat, long in TEST_COORDS_GOOD:
+        first = Coords(lat, long)
+        second = Coords.sql_convert(Coords.sql_adapt(first))
+        assert first == second

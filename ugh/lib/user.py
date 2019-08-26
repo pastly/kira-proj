@@ -17,7 +17,7 @@ class User:
         self.rowid = rowid
 
     @staticmethod
-    def from_row(r: sqlite3.Row):
+    def from_row(r: sqlite3.Row) -> 'User':
         return User(r['nick'], r['pk'], rowid=r['rowid'])
 
     @staticmethod
@@ -33,11 +33,11 @@ class User:
             'rowid': self.rowid,
         }
 
-    def __str__(self):
+    def __str__(self) -> str:
         return 'User<{id} {n} {pk}>'.format(
             id=self.rowid, n=self.nick, pk=self.pk)
 
-    def __eq__(self, rhs):
+    def __eq__(self, rhs) -> bool:
         return self.nick == rhs.nick \
             and self.rowid == rhs.rowid \
             and self.pk == rhs.pk
