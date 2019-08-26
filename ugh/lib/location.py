@@ -6,7 +6,7 @@ class Coords:
         self.long = long
 
     def __str__(self) -> str:
-        return 'Coords<lat=%d long=%d>' % (self.lat, self.long)
+        return 'Coords<lat=%f long=%f>' % (self.lat, self.long)
 
     def to_dict(self) -> dict:
         return {

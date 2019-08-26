@@ -33,7 +33,7 @@ def test_coords_init_bad():
 def test_coords_str():
     for lat, long in TEST_COORDS_GOOD:
         loc = Coords(lat, long)
-        s = 'Coords<lat=%d long=%d>' % (lat, long)
+        s = 'Coords<lat=%f long=%f>' % (lat, long)
         assert str(loc) == s
 
 
