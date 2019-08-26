@@ -18,6 +18,7 @@ DEF_SCHEMA = user.DB_SCHEMA + location.DB_SCHEMA
 
 CRED_LIFETIME: float = 60 * 30  # 30 minutes, in seconds
 IDKEY: crypto.Seckey
+ENCKEY: crypto.Enckey
 
 
 def gen_parser(sub):
@@ -53,15 +54,20 @@ def main_gen_key():
     idsk = crypto.Seckey(bytes(nacl.signing.SigningKey.generate()))
     idsk_str = b64encode(bytes(idsk)).decode('utf-8')
     idpk_str = b64encode(bytes(idsk.pubkey)).decode('utf-8')
+    enc = crypto.Enckey.gen()
+    enc_str = b64encode(enc).decode('utf-8')
     print('Generated secret identity key is', idsk_str)
     print('Generated public identity key is', idpk_str)
+    print('Generated encryption key is', enc_str)
     print('Add the following to your config:')
-    print('[server]\nidentity = %s' % (idsk_str,))
+    print('[server]\nidentity = %s\nencryption = %s' % (idsk_str, enc_str))
 
 
-def update_globals(conf, sk: crypto.Seckey):
+def update_globals(conf, sk: crypto.Seckey, ek: crypto.Enckey):
     global IDKEY
     IDKEY = sk
+    global ENCKEY
+    ENCKEY = ek
     if 'cred_lifetime' in conf['server']:
         global CRED_LIFETIME
         lifetime = conf.getfloat('server', 'cred_lifetime')
@@ -73,7 +79,8 @@ def main(args, conf):
     if args.gen_key:
         return main_gen_key()
     sk = crypto.Seckey(b64decode(conf['server']['identity']))
-    update_globals(conf, sk)
+    ek = crypto.Enckey(b64decode(conf['server']['encryption']))
+    update_globals(conf, sk, ek)
     pk_str = b64encode(bytes(sk.pubkey)).decode('utf-8')
     log.info('My public key is %s', pk_str)
     success, db_conn = db.connect(
