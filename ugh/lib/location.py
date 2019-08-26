@@ -2,7 +2,7 @@ import sqlite3
 from .user import User
 
 DB_SCHEMA = '''
-CREATE TABLE locations (
+CREATE TABLE Locations (
     coords Coords,
     time REAL, -- Unix timestamps
     user INTEGER,

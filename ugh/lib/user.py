@@ -6,7 +6,7 @@ from .crypto import Pubkey
 log = logging.getLogger(__name__)
 
 DB_SCHEMA = '''
-CREATE TABLE users (nick TEXT NOT NULL, pk Pubkey UNIQUE);
+CREATE TABLE Users (nick TEXT NOT NULL, pk Pubkey UNIQUE);
 '''
 
 

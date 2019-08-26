@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 def insert_user(conn: sqlite3.Connection, u: User) -> User:
     assert u.rowid is None
-    q = 'INSERT INTO users VALUES (?, ?)'
+    q = 'INSERT INTO Users VALUES (?, ?)'
     c = conn.execute(q, (u.nick, u.pk))
     conn.commit()
     u_out = user_with_id(conn, c.lastrowid)
@@ -19,7 +19,7 @@ def insert_user(conn: sqlite3.Connection, u: User) -> User:
 
 
 def insert_location(conn: sqlite3.Connection, loc: Location) -> Location:
-    q = 'INSERT INTO locations VALUES (?, ?, ?)'
+    q = 'INSERT INTO Locations VALUES (?, ?, ?)'
     assert loc.user.rowid is not None
     c = conn.execute(q, (loc.coords, loc.time, loc.user.rowid))
     conn.commit()
@@ -48,7 +48,7 @@ def connect(fname: str, schema=None):
 
 
 def get_users(conn: sqlite3.Connection) -> Iterator[User]:
-    q = 'SELECT rowid, * from users'
+    q = 'SELECT rowid, * from Users'
     c = conn.cursor()
     c.execute(q)
     while True:
@@ -59,8 +59,8 @@ def get_users(conn: sqlite3.Connection) -> Iterator[User]:
 
 
 def get_locations(conn: sqlite3.Connection) -> Iterator[Location]:
-    q = 'SELECT locations.rowid, * from locations '\
-        'INNER JOIN users ON users.rowid = locations.user'
+    q = 'SELECT Locations.rowid, * from Locations '\
+        'INNER JOIN Users ON Users.rowid = Locations.user'
     c = conn.cursor()
     c.execute(q)
     while True:
@@ -71,7 +71,7 @@ def get_locations(conn: sqlite3.Connection) -> Iterator[Location]:
 
 
 def user_with_pk(conn: sqlite3.Connection, pk: Pubkey) -> Optional[User]:
-    q = 'SELECT rowid, * from users WHERE pk=?'
+    q = 'SELECT rowid, * from Users WHERE pk=?'
     c = conn.execute(q, (pk,))
     ret = c.fetchall()
     assert len(ret) == 0 or len(ret) == 1
@@ -81,7 +81,7 @@ def user_with_pk(conn: sqlite3.Connection, pk: Pubkey) -> Optional[User]:
 
 
 def user_with_id(conn: sqlite3.Connection, id: int) -> Optional[User]:
-    q = 'SELECT rowid, * from users WHERE rowid=?'
+    q = 'SELECT rowid, * from Users WHERE rowid=?'
     c = conn.execute(q, (id,))
     ret = c.fetchall()
     assert len(ret) == 0 or len(ret) == 1
@@ -91,9 +91,9 @@ def user_with_id(conn: sqlite3.Connection, id: int) -> Optional[User]:
 
 
 def location_with_id(conn: sqlite3.Connection, id: int) -> Optional[Location]:
-    q = 'SELECT locations.rowid, * from locations '\
-        'INNER JOIN users ON users.rowid = locations.user '\
-        'WHERE locations.rowid=?'
+    q = 'SELECT Locations.rowid, * from Locations '\
+        'INNER JOIN Users ON Users.rowid = Locations.user '\
+        'WHERE Locations.rowid=?'
     c = conn.execute(q, (id,))
     ret = c.fetchall()
     assert len(ret) == 0 or len(ret) == 1
