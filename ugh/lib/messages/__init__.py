@@ -35,13 +35,14 @@ class MessageType(Enum):
     AccountResp = 'ACCOUNT_RESP'
     AccountCred = 'ACCOUNT_CRED'
     LocationUpdate = 'LOCATION_UPDATE'
+    GetInfo = 'GET_INFO'
+    GetInfoLocation = 'GET_INFO_LOCATION'
 
 
 class Message:
     @staticmethod
     def from_dict(d: dict) -> Optional['Message']:
-        from ugh.lib.messages import account
-        from ugh.lib.messages import location
+        from ugh.lib.messages import account, location, getinfo
         ty = MessageType(d['type'])
         del d['type']
         return {  # type: ignore
@@ -59,11 +60,14 @@ class Message:
                 account.AccountCred.from_dict(d),
             MessageType.LocationUpdate: lambda d:
                 location.LocationUpdate.from_dict(d),
+            MessageType.GetInfo: lambda d:
+                getinfo.GetInfo.from_dict(d),
+            MessageType.GetInfoLocation: lambda d:
+                getinfo.GetInfoLocation.from_dict(d),
         }[ty](d)
 
     def to_dict(self) -> dict:
-        from ugh.lib.messages import account
-        from ugh.lib.messages import location
+        from ugh.lib.messages import account, location, getinfo
         return {
             'version': CUR_VERSION,
             'type': {
@@ -72,6 +76,8 @@ class Message:
                 account.AccountResp: MessageType.AccountResp,
                 account.AccountCred: MessageType.AccountCred,
                 location.LocationUpdate: MessageType.LocationUpdate,
+                getinfo.GetInfo: MessageType.GetInfo,
+                getinfo.GetInfoLocation: MessageType.GetInfoLocation,
             }[type(self)].value
         }
 
