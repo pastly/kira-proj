@@ -108,7 +108,7 @@ def locations_for_user(
     q = 'SELECT Locations.rowid, * from Locations '\
         'INNER JOIN Users ON Users.rowid = Locations.user '\
         'WHERE Locations.user=? '\
-        'ORDER BY Locations.rowid {ord}'.format(
+        'ORDER BY Locations.time {ord}'.format(
             ord='DESC' if reverse else 'ASC',
         )
     assert u.rowid is not None

@@ -1,16 +1,14 @@
 from argparse import ArgumentDefaultsHelpFormatter
 from base64 import b64encode, b64decode
 import logging
+import itertools
 import sqlite3
 import nacl
 from ..lib import db
 from ..lib import user
-from ..lib import location
+from ..lib import location as loca
 from ..lib import crypto
-from ..lib.messages.account import AccountReq, AccountResp, AccountRespErr,\
-    AccountCred
-from ..lib.messages.location import LocationUpdate, LocationUpdateResp,\
-    LocationUpdateRespErr
+from ..lib.messages import account, location, getinfo
 from ..lib.messages import SignedMessage, EncryptedMessage, SignedMessageErr,\
     CredErr
 import time
@@ -18,7 +16,7 @@ from typing import Tuple, Union
 
 
 log = logging.getLogger(__name__)
-DEF_SCHEMA = user.DB_SCHEMA + location.DB_SCHEMA
+DEF_SCHEMA = user.DB_SCHEMA + loca.DB_SCHEMA
 
 CRED_LIFETIME: float = 60 * 5  # 5 minutes, in seconds
 IDKEY: crypto.Seckey
@@ -35,7 +33,7 @@ def gen_parser(sub):
         'Generate an identity key, print it, and quit.')
 
 
-def refresh_credential(cred: AccountCred) -> EncryptedMessage:
+def refresh_credential(cred: account.AccountCred) -> EncryptedMessage:
     cred.expire = time.time() + CRED_LIFETIME
     scred = SignedMessage.sign(cred, IDKEY)
     ecred = EncryptedMessage.enc(scred, ENCKEY)
@@ -43,7 +41,7 @@ def refresh_credential(cred: AccountCred) -> EncryptedMessage:
 
 
 def validate_credential(ecred: EncryptedMessage, user: user.User) -> \
-        Tuple[bool, Union[AccountCred, CredErr]]:
+        Tuple[bool, Union[account.AccountCred, CredErr]]:
     # Caller must at least make sure the given message is an EncryptedMessage
     assert isinstance(ecred, EncryptedMessage)
     # make sure it was encrypted by us (will be None if it wasn't)
@@ -57,9 +55,9 @@ def validate_credential(ecred: EncryptedMessage, user: user.User) -> \
         return False, CredErr.Malformed
     cred, cred_pk = scred.unwrap()
     # make sure the contained cred is actually an AccountCred
-    if not isinstance(cred, AccountCred):
+    if not isinstance(cred, account.AccountCred):
         return False, CredErr.Malformed
-    assert isinstance(cred, AccountCred)
+    assert isinstance(cred, account.AccountCred)
     assert isinstance(cred_pk, crypto.Pubkey)
     # make sure it was signed by us
     if not cred_pk == IDKEY.pubkey:
@@ -76,45 +74,95 @@ def validate_credential(ecred: EncryptedMessage, user: user.User) -> \
 
 def handle_account_request(
         db_conn: sqlite3.Connection, smsg: SignedMessage) \
-        -> AccountResp:
+        -> account.AccountResp:
     if not smsg.is_valid():
-        return AccountResp(False, None, AccountRespErr.BadSig)
+        return account.AccountResp(False, None, account.AccountRespErr.BadSig)
     req, pk_used = smsg.unwrap()
-    if not isinstance(req, AccountReq):
-        return AccountResp(False, None, AccountRespErr.Malformed)
+    if not isinstance(req, account.AccountReq):
+        return account.AccountResp(
+            False, None, account.AccountRespErr.Malformed)
     if req.pk != pk_used:
-        return AccountResp(False, None, AccountRespErr.WrongPubkey)
+        return account.AccountResp(
+            False, None, account.AccountRespErr.WrongPubkey)
     if db.user_with_pk(db_conn, req.pk):
-        return AccountResp(False, None, AccountRespErr.PubkeyExists)
+        return account.AccountResp(
+            False, None, account.AccountRespErr.PubkeyExists)
     u = user.User(req.nick, req.pk)
     u = db.insert_user(db_conn, u)
-    cred = AccountCred.gen(u, CRED_LIFETIME)
+    cred = account.AccountCred.gen(u, CRED_LIFETIME)
     scred = SignedMessage.sign(cred, IDKEY)
     ecred = EncryptedMessage.enc(scred, ENCKEY)
-    return AccountResp(True, ecred, None)
+    return account.AccountResp(True, ecred, None)
 
 
 def handle_location_update(
         db_conn: sqlite3.Connection, smsg: SignedMessage) \
-        -> LocationUpdateResp:
+        -> location.LocationUpdateResp:
     if not smsg.is_valid():
-        return LocationUpdateResp(False, None, SignedMessageErr.BadSig)
+        return location.LocationUpdateResp(
+            False, None, SignedMessageErr.BadSig)
     loc_update, pk_used = smsg.unwrap()
-    if not isinstance(loc_update, LocationUpdate):
-        return LocationUpdateResp(False, None, LocationUpdateRespErr.Malformed)
+    if not isinstance(loc_update, location.LocationUpdate):
+        return location.LocationUpdateResp(
+            False, None, location.LocationUpdateRespErr.Malformed)
     user = db.user_with_pk(db_conn, pk_used)
     if not user:
-        return LocationUpdateResp(False, None, SignedMessageErr.UnknownUser)
+        return location.LocationUpdateResp(
+            False, None, SignedMessageErr.UnknownUser)
     # OK to assert on this as we should not have been able to contract a
     # LocationUpdate if its cred isn't a valid EncryptedMessage
     assert isinstance(loc_update.cred, EncryptedMessage)
     valid_cred, cred_or_err = validate_credential(loc_update.cred, user)
     if not valid_cred:
         assert isinstance(cred_or_err, CredErr)
-        return LocationUpdateResp(False, None, cred_or_err)
-    assert isinstance(cred_or_err, AccountCred)
+        return location.LocationUpdateResp(False, None, cred_or_err)
+    assert isinstance(cred_or_err, account.AccountCred)
     db.insert_location(db_conn, loc_update.loc)
-    return LocationUpdateResp(True, refresh_credential(cred_or_err), None)
+    return location.LocationUpdateResp(
+        True, refresh_credential(cred_or_err), None)
+
+
+def handle_getinfo(
+        db_conn: sqlite3.Connection, smsg: SignedMessage) \
+        -> getinfo.GetInfoResp:
+    if not smsg.is_valid():
+        return getinfo.GetInfoResp(SignedMessageErr.BadSig)
+    gi_req, pk_used = smsg.unwrap()
+    if not isinstance(gi_req, getinfo.GetInfo):
+        return getinfo.GetInfoResp(getinfo.GetInfoRespErr.Malformed)
+    user = db.user_with_pk(db_conn, pk_used)
+    if not user:
+        return getinfo.GetInfoResp(SignedMessageErr.UnknownUser)
+    # OK to assert on this as we should not have been able to contract a
+    # GetInfo if its cred isn't a valid EncryptedMessage
+    assert isinstance(gi_req.cred, EncryptedMessage)
+    valid_cred, cred_or_err = validate_credential(gi_req.cred, user)
+    if not valid_cred:
+        assert isinstance(cred_or_err, CredErr)
+        return getinfo.GetInfoResp(cred_or_err)
+    assert isinstance(cred_or_err, account.AccountCred)
+    user_in_req = db.user_with_pk(db_conn, gi_req.user_pk)
+    if user_in_req is None:
+        return getinfo.GetInfoResp(getinfo.GetInfoRespErr.NoSuchUser)
+    if type(gi_req) == getinfo.GetInfo:
+        return getinfo.GetInfoResp(getinfo.GetInfoRespErr.NotImpl)
+    return {  # type: ignore
+              # TODO remove when more than one type of GetInfo
+        getinfo.GetInfoLocation:
+            lambda gi: handle_getinfo_location(db_conn, gi),
+    }[type(gi_req)](gi_req)
+
+
+def handle_getinfo_location(
+        db_conn: sqlite3.Connection,
+        req: getinfo.GetInfoLocation) -> \
+        getinfo.GetInfoResp:
+    u = db.user_with_pk(db_conn, req.user_pk)
+    assert isinstance(u, user.User)
+    locs = list(itertools.islice(
+        db.locations_for_user(db_conn, u, reverse=req.newest),
+        0, req.count))
+    return getinfo.GetInfoRespLocation(locs, None)
 
 
 def main_gen_key():

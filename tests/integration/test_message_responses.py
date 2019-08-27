@@ -1,14 +1,13 @@
 from ugh.lib import db
 from ugh.lib import user
 from ugh.lib import crypto
-from ugh.lib import location
+from ugh.lib import location as loca
 from ugh.lib.messages import Stub, SignedMessage, EncryptedMessage, CredErr,\
     SignedMessageErr
-from ugh.lib.messages import account
-from ugh.lib.messages.location import LocationUpdate, LocationUpdateResp,\
-    LocationUpdateRespErr
+from ugh.lib.messages import account, getinfo, location
 from ugh.core import server
 import time
+import random
 
 
 SK1 = crypto.Seckey((111).to_bytes(32, byteorder='big'))
@@ -26,6 +25,25 @@ def get_db():
     db.insert_user(db_conn, U1)
     db.insert_user(db_conn, U2)
     return db_conn
+
+
+def insert_many_locs(db_conn, user):
+    def rand_time():
+        return 1 + random.random()
+
+    count = 0
+    for lat in [0, 20, 40, 60, 80]:
+        for long in [0, 45, 90, 135]:
+            loc = loca.Location(user, loca.Coords(lat, long), rand_time())
+            db.insert_location(db_conn, loc)
+            loc = loca.Location(user, loca.Coords(-lat, long), rand_time())
+            db.insert_location(db_conn, loc)
+            loc = loca.Location(user, loca.Coords(lat, -long), rand_time())
+            db.insert_location(db_conn, loc)
+            loc = loca.Location(user, loca.Coords(-lat, -long), rand_time())
+            db.insert_location(db_conn, loc)
+            count += 4
+    return count
 
 
 def get_cred(
@@ -157,8 +175,8 @@ def test_location_update_happy():
     ecred = get_cred(u)
     original_expire = expire_from_ecred(
         ecred, server.ENCKEY, server.IDKEY.pubkey)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     resp = server.handle_location_update(db_conn, slu)
     assert resp.ok
@@ -174,8 +192,8 @@ def test_location_update_db_inserted():
     db_conn = get_db()
     u = db.user_with_pk(db_conn, U1.pk)
     ecred = get_cred(u)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     server.handle_location_update(db_conn, slu)
     db_locs = list(db.locations_for_user(db_conn, u))
@@ -189,13 +207,13 @@ def test_location_update_badsig():
     db_conn = get_db()
     u = db.user_with_pk(db_conn, U1.pk)
     ecred = get_cred(u)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     # ruin the sig in the signed location update
     slu.msg_bytes = b'foo'
     resp = server.handle_location_update(db_conn, slu)
-    assert type(resp) == LocationUpdateResp
+    assert type(resp) == location.LocationUpdateResp
     assert not resp.ok
     assert resp.cred is None  # TODO
     assert resp.err == SignedMessageErr.BadSig
@@ -208,23 +226,23 @@ def test_location_update_malformed():
     # Sign a Stub instead of a LocationUpate
     slu = SignedMessage.sign(Stub(90210), SK1)
     resp = server.handle_location_update(db_conn, slu)
-    assert type(resp) == LocationUpdateResp
+    assert type(resp) == location.LocationUpdateResp
     assert not resp.ok
     assert resp.cred is None  # TODO
-    assert resp.err == LocationUpdateRespErr.Malformed
+    assert resp.err == location.LocationUpdateRespErr.Malformed
 
 
 def test_location_update_badecred_1():
     db_conn = get_db()
     u = db.user_with_pk(db_conn, U1.pk)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
     # use a Stub instead of encrypted signed AccountCred
-    lu = LocationUpdate(loc, Stub(90210))
+    lu = location.LocationUpdate(loc, Stub(90210))
     slu = SignedMessage.sign(lu, SK1)
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
     assert resp.cred is None  # TODO
-    assert resp.err == LocationUpdateRespErr.Malformed
+    assert resp.err == location.LocationUpdateRespErr.Malformed
 
 
 def test_location_update_badecred_2():
@@ -233,8 +251,8 @@ def test_location_update_badecred_2():
     ecred = get_cred(u)
     # munge the enc part of the encrypted signed account cred
     ecred.ctext_nonce = b'nnnnnnnnnnnnnnnnnnnnnnnneeeeeeee'
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
@@ -248,8 +266,8 @@ def test_location_update_badecred_3():
     ecred = get_cred(u)
     # munge the enc part of the encrypted signed account cred
     ecred.ctext_nonce = b'fooooo'
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
@@ -262,8 +280,8 @@ def test_location_update_badscred_1():
     u = db.user_with_pk(db_conn, U1.pk)
     # ecred is correct but contains a Stub instead of SignedMessage
     ecred = get_cred(u, scred_stub=True)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
@@ -276,8 +294,8 @@ def test_location_update_badscred_2():
     u = db.user_with_pk(db_conn, U1.pk)
     # ecred is correct but contains a broken SignedMessage
     ecred = get_cred(u, scred_munge=True)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
@@ -291,8 +309,8 @@ def test_location_update_badcred_1():
     # ecred is correct and contains good SignedMessage, but the SignedMessage
     # contains a Stub
     ecred = get_cred(u, cred_stub=True)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
@@ -306,8 +324,8 @@ def test_location_update_badcred_2():
     # ecred is correct and contains good SignedMessage, but the SignedMessage
     # is signed by the wrong key
     ecred = get_cred(u, cred_wrong_key=True)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
@@ -320,8 +338,8 @@ def test_location_update_expired_cred():
     u = db.user_with_pk(db_conn, U1.pk)
     # cred is expired
     ecred = get_cred(u, cred_expired=True)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
@@ -334,8 +352,8 @@ def test_location_update_wrong_user():
     u = db.user_with_pk(db_conn, U1.pk)
     # credential is for a user other than the one who signed the message
     ecred = get_cred(u, cred_wrong_user=True)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     slu = SignedMessage.sign(lu, SK1)
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
@@ -347,8 +365,8 @@ def test_location_update_unknown_user():
     db_conn = get_db()
     u = db.user_with_pk(db_conn, U1.pk)
     ecred = get_cred(u)
-    loc = location.Location(u, location.Coords(42, 69), time.time())
-    lu = LocationUpdate(loc, ecred)
+    loc = location.Location(u, loca.Coords(42, 69), time.time())
+    lu = location.LocationUpdate(loc, ecred)
     # user who signed this message is not even in the db
     fake_sk = crypto.Seckey((1).to_bytes(32, byteorder='big'))
     slu = SignedMessage.sign(lu, fake_sk)
@@ -356,3 +374,209 @@ def test_location_update_unknown_user():
     assert not resp.ok
     assert resp.cred is None  # TODO
     assert resp.err == SignedMessageErr.UnknownUser
+
+
+def test_getinfo_unknown_user():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    ecred = get_cred(u)
+    # user who signed this message is not even in the db
+    fake_sk = crypto.Seckey((1).to_bytes(32, byteorder='big'))
+    gi = SignedMessage.sign(getinfo.GetInfo(u.pk, ecred), fake_sk)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert isinstance(gir, getinfo.GetInfoResp)
+    assert not gir.ok
+    assert gir.err == SignedMessageErr.UnknownUser
+
+
+def test_getinfo_badsig():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    ecred = get_cred(u)
+    gi = SignedMessage.sign(getinfo.GetInfo(u.pk, ecred), SK1)
+    # munge the signed message so it doesn't verify
+    gi.msg_bytes = b'nnnnnnnnnnnnnnnnnnnnnnnnaaaaaaaaaaaa'
+    gir = server.handle_getinfo(db_conn, gi)
+    assert isinstance(gir, getinfo.GetInfoResp)
+    assert not gir.ok
+    assert gir.err == SignedMessageErr.BadSig
+
+
+def test_getinfo_not_getinfo():
+    db_conn = get_db()
+    # not a GetInfo
+    gi = SignedMessage.sign(Stub(1), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert isinstance(gir, getinfo.GetInfoResp)
+    assert not gir.ok
+    assert gir.err == getinfo.GetInfoRespErr.Malformed
+
+
+def test_getinfo_badcred():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    ecred = get_cred(u)
+    # munge the cred so it isn't valid
+    ecred.ctext_nonce = b'0000000000000000000000000'
+    gi = SignedMessage.sign(getinfo.GetInfo(u.pk, ecred), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert isinstance(gir, getinfo.GetInfoResp)
+    assert not gir.ok
+    assert gir.err == CredErr.Malformed
+
+
+def test_getinfo_unknown_user_in_req():
+    db_conn = get_db()
+    # ask about a user with a pubkey that doesn't exist
+    fake_pk = crypto.Pubkey((98345).to_bytes(32, byteorder='big'))
+    u = db.user_with_pk(db_conn, U1.pk)
+    ecred = get_cred(u)
+    gi = SignedMessage.sign(getinfo.GetInfo(fake_pk, ecred), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert isinstance(gir, getinfo.GetInfoResp)
+    assert not gir.ok
+    assert gir.err == getinfo.GetInfoRespErr.NoSuchUser
+
+
+def test_getinfo_notimpl():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    ecred = get_cred(u)
+    gi = SignedMessage.sign(getinfo.GetInfo(U2.pk, ecred), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert isinstance(gir, getinfo.GetInfoResp)
+    assert not gir.ok
+    assert gir.err == getinfo.GetInfoRespErr.NotImpl
+
+
+def test_getinfoloc_happy_default():
+    db_conn = get_db()
+    u_me = db.user_with_pk(db_conn, U1.pk)
+    u_other = db.user_with_pk(db_conn, U2.pk)
+    insert_many_locs(db_conn, u_other)
+    ecred = get_cred(u_me)
+    gi = SignedMessage.sign(getinfo.GetInfoLocation(u_other.pk, ecred), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert gir.ok
+    assert gir.err is None
+    assert len(gir.locs) == 1
+
+
+def test_getinfoloc_multiple_count_correct_1():
+    db_conn = get_db()
+    u_me = db.user_with_pk(db_conn, U1.pk)
+    u_other = db.user_with_pk(db_conn, U2.pk)
+    insert_many_locs(db_conn, u_other)
+    ecred = get_cred(u_me)
+    gi = SignedMessage.sign(
+        getinfo.GetInfoLocation(u_other.pk, ecred, count=5), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert gir.ok
+    assert gir.err is None
+    assert len(gir.locs) == 5
+
+
+def test_getinfoloc_multiple_count_correct_2():
+    db_conn = get_db()
+    u_me = db.user_with_pk(db_conn, U1.pk)
+    u_other = db.user_with_pk(db_conn, U2.pk)
+    num_locs = insert_many_locs(db_conn, u_other)
+    ecred = get_cred(u_me)
+    gi = SignedMessage.sign(
+        getinfo.GetInfoLocation(u_other.pk, ecred, count=num_locs), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert gir.ok
+    assert gir.err is None
+    assert len(gir.locs) == num_locs
+
+
+def test_getinfoloc_multiple_count_correct_3():
+    db_conn = get_db()
+    u_me = db.user_with_pk(db_conn, U1.pk)
+    u_other = db.user_with_pk(db_conn, U2.pk)
+    num_locs = insert_many_locs(db_conn, u_other)
+    ecred = get_cred(u_me)
+    gi = SignedMessage.sign(
+        getinfo.GetInfoLocation(u_other.pk, ecred, count=num_locs+10), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert gir.ok
+    assert gir.err is None
+    assert len(gir.locs) == num_locs
+
+
+def test_getinfoloc_multiple_order_correct_1():
+    db_conn = get_db()
+    u_me = db.user_with_pk(db_conn, U1.pk)
+    u_other = db.user_with_pk(db_conn, U2.pk)
+    insert_many_locs(db_conn, u_other)
+    # when not asking for a specfic order, we get the newest location first,
+    # thus it should have the max time of all locations
+    max_time = max([
+        loc.time for loc in db.locations_for_user(db_conn, u_other)])
+    ecred = get_cred(u_me)
+    gi = SignedMessage.sign(
+        getinfo.GetInfoLocation(u_other.pk, ecred, count=1), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert gir.ok
+    assert gir.err is None
+    assert len(gir.locs) == 1
+    assert gir.locs[0].time == max_time
+
+
+def test_getinfoloc_multiple_order_correct_2():
+    db_conn = get_db()
+    u_me = db.user_with_pk(db_conn, U1.pk)
+    u_other = db.user_with_pk(db_conn, U2.pk)
+    insert_many_locs(db_conn, u_other)
+    # when asking for newest=False, we should get the oldest location first,
+    # thus it should have the min time of all locations
+    min_time = min([
+        loc.time for loc in db.locations_for_user(db_conn, u_other)])
+    ecred = get_cred(u_me)
+    gi = SignedMessage.sign(getinfo.GetInfoLocation(
+        u_other.pk, ecred, count=1, newest=False), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert gir.ok
+    assert gir.err is None
+    assert len(gir.locs) == 1
+    assert gir.locs[0].time == min_time
+
+
+def test_getinfoloc_multiple_order_correct_3():
+    db_conn = get_db()
+    u_me = db.user_with_pk(db_conn, U1.pk)
+    u_other = db.user_with_pk(db_conn, U2.pk)
+    num_locs = insert_many_locs(db_conn, u_other)
+    # when not asking for a specfic order, we get the newest location first,
+    # every subsequent location should have a smaller time
+    ecred = get_cred(u_me)
+    gi = SignedMessage.sign(
+        getinfo.GetInfoLocation(u_other.pk, ecred, count=num_locs), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert gir.ok
+    assert gir.err is None
+    assert len(gir.locs) == num_locs
+    last_time = 999999999999999
+    for loc in gir.locs:
+        assert loc.time < last_time
+        last_time = loc.time
+
+
+def test_getinfoloc_multiple_order_correct_4():
+    db_conn = get_db()
+    u_me = db.user_with_pk(db_conn, U1.pk)
+    u_other = db.user_with_pk(db_conn, U2.pk)
+    num_locs = insert_many_locs(db_conn, u_other)
+    # when asking for newest=False, we should get the oldest location first,
+    # every subsequent location should have a smaller time
+    ecred = get_cred(u_me)
+    gi = SignedMessage.sign(getinfo.GetInfoLocation(
+        u_other.pk, ecred, count=num_locs, newest=False), SK1)
+    gir = server.handle_getinfo(db_conn, gi)
+    assert gir.ok
+    assert gir.err is None
+    assert len(gir.locs) == num_locs
+    last_time = -999999999999
+    for loc in gir.locs:
+        assert loc.time > last_time
+        last_time = loc.time

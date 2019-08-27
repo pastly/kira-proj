@@ -37,6 +37,8 @@ class MessageType(Enum):
     LocationUpdate = 'LOCATION_UPDATE'
     GetInfo = 'GET_INFO'
     GetInfoLocation = 'GET_INFO_LOCATION'
+    GetInfoResp = 'GET_INFO_RESP'
+    GetInfoRespLocation = 'GET_INFO_RESP_LOCATION'
 
 
 class Message:
@@ -64,6 +66,10 @@ class Message:
                 getinfo.GetInfo.from_dict(d),
             MessageType.GetInfoLocation: lambda d:
                 getinfo.GetInfoLocation.from_dict(d),
+            MessageType.GetInfoResp: lambda d:
+                getinfo.GetInfoResp.from_dict(d),
+            MessageType.GetInfoRespLocation: lambda d:
+                getinfo.GetInfoRespLocation.from_dict(d),
         }[ty](d)
 
     def to_dict(self) -> dict:
@@ -78,8 +84,14 @@ class Message:
                 location.LocationUpdate: MessageType.LocationUpdate,
                 getinfo.GetInfo: MessageType.GetInfo,
                 getinfo.GetInfoLocation: MessageType.GetInfoLocation,
+                getinfo.GetInfoResp: MessageType.GetInfoResp,
+                getinfo.GetInfoRespLocation: MessageType.GetInfoRespLocation,
             }[type(self)].value
         }
+
+    def __eq__(self, rhs) -> bool:
+        # Message has no members of its own, so only check that type is same
+        return isinstance(rhs, Message)
 
 
 class SignedMessage:

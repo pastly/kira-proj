@@ -1,7 +1,8 @@
-from . import Message, EncryptedMessage
+from . import Message, EncryptedMessage, MessageErr
 from .. import crypto
+from ..messages.location import Location
 from base64 import b64encode, b64decode
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 
 class GetInfo(Message):
@@ -37,6 +38,41 @@ class GetInfo(Message):
             and self.cred == rhs.cred
 
 
+class GetInfoRespErr(MessageErr):
+    Malformed = 'Message was not a valid GetInfo or subclass'
+    NoSuchUser = 'Asked for info for pubkey with no associated user'
+    NotImpl = 'No GetInfoResponse for that type of GetInfo request'
+
+
+class GetInfoResp(Message):
+    def __init__(self, err: Optional[MessageErr]):
+        self.ok = err is None
+        self.err = err
+
+    @staticmethod
+    def from_dict(d: dict) -> Optional['GetInfoResp']:
+        if 'err' not in d:
+            return None
+        return GetInfoResp(d['err'])
+
+    def to_dict(self) -> dict:
+        d = {
+            'err': self.err,
+        }
+        d.update(super().to_dict())
+        return d
+
+    def __str__(self) -> str:
+        return 'GetInfoResp<{ok} {e}>'.format(
+            ok=self.ok, e=self.err,
+        )
+
+    def __eq__(self, rhs) -> bool:
+        if not isinstance(rhs, GetInfoResp):
+            return False
+        return self.to_dict() == rhs.to_dict()
+
+
 class GetInfoLocation(GetInfo):
     def __init__(
             self,
@@ -70,3 +106,35 @@ class GetInfoLocation(GetInfo):
         del d['count']
         del d['newest']
         return GetInfoLocation(gi.user_pk, gi.cred, count=count, newest=newest)
+
+
+class GetInfoRespLocation(GetInfoResp):
+    def __init__(
+            self,
+            locs: List[Location],
+            *gir_args: Union[Optional[MessageErr]]):
+        assert len(gir_args) == 1
+        assert gir_args[0] is None or isinstance(gir_args[0], MessageErr)
+        super().__init__(*gir_args)
+        self.locs = locs
+
+    def to_dict(self) -> dict:
+        d = {
+            'locs': self.locs,
+        }
+        d.update(super().to_dict())
+        return d
+
+    @staticmethod
+    def from_dict(d: dict) -> Optional['GetInfoRespLocation']:
+        if 'locs' not in d:
+            return None
+        gir = GetInfoResp.from_dict(d)
+        if gir is None:
+            return None
+        return GetInfoRespLocation(d['locs'], gir.err)
+
+    def __str__(self) -> str:
+        return 'GetInfoRespLocation<{ok} {e} [{n} locs]>'.format(
+            ok=self.ok, e=self.err, n=len(self.locs),
+        )
