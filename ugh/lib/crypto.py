@@ -2,6 +2,7 @@ import nacl.signing
 import nacl.secret
 import nacl.utils
 import sqlite3
+from base64 import b64encode
 
 
 class Pubkey(nacl.signing.VerifyKey):
@@ -19,8 +20,10 @@ class Pubkey(nacl.signing.VerifyKey):
         return Pubkey(b)
 
     def __str__(self):
-        return 'Pubkey<{pk}>'.format(
-            pk=int.from_bytes(bytes(self), byteorder='big'))
+        return 'Pubkey<%s..%s (%d bytes)>' % (
+            b64encode(bytes(self)[:6]).decode('utf-8'),
+            b64encode(bytes(self)[-6:]).decode('utf-8'),
+            len(bytes(self)))
 
 
 class Seckey(nacl.signing.SigningKey):
@@ -29,8 +32,10 @@ class Seckey(nacl.signing.SigningKey):
         return Pubkey(bytes(self.verify_key))
 
     def __str__(self):
-        return 'Seckey<{k}>'.format(
-            k=int.from_bytes(bytes(self), byteorder='big'))
+        return 'Seckey<%s..%s (%d bytes)>' % (
+            b64encode(bytes(self)[:6]).decode('utf-8'),
+            b64encode(bytes(self)[-6:]).decode('utf-8'),
+            len(bytes(self)))
 
 
 class Enckey(bytes):

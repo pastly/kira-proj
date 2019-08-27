@@ -1,4 +1,5 @@
 from ugh.lib.crypto import Pubkey, Enckey
+from base64 import b64encode
 
 
 PK_VALS = {
@@ -31,7 +32,10 @@ def test_pubkey_convert():
 
 def test_pubkey_str():
     for v in [v.to_bytes(32, byteorder='big') for v in PK_VALS]:
-        s = 'Pubkey<%d>' % (int.from_bytes(v, byteorder='big'),)
+        s = 'Pubkey<%s..%s (%d bytes)>' % (
+            b64encode(v[:6]).decode('utf-8'),
+            b64encode(v[-6:]).decode('utf-8'),
+            len(v))
         assert str(Pubkey(v)) == s
 
 
