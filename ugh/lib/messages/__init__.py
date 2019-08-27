@@ -3,10 +3,28 @@ import json
 # import time
 from ..crypto import Seckey, Pubkey, Enckey
 from enum import Enum
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 from base64 import b64encode, b64decode
+import logging
 
+
+log = logging.getLogger(__name__)
 CUR_VERSION = 1
+
+
+class MessageErr(Enum):
+    pass
+
+
+class SignedMessageErr(MessageErr):
+    BadSig = 'The signature is invalid'
+    UnknownUser = 'The pubkey that signed this request is unknown'
+
+
+class CredErr(MessageErr):
+    Malformed = 'Message was not a valid AccountCred'
+    BadCred = 'AccountCred is not valid right now or wasn\'t made by us'
+    WrongUser = 'AccountCred is for a user other than the expected one'
 
 
 class MessageType(Enum):
@@ -21,12 +39,12 @@ class MessageType(Enum):
 
 class Message:
     @staticmethod
-    def from_dict(d: dict):
+    def from_dict(d: dict) -> Optional['Message']:
         from ugh.lib.messages import account
         from ugh.lib.messages import location
         ty = MessageType(d['type'])
         del d['type']
-        return {
+        return {  # type: ignore
             MessageType.Stub: lambda d:
                 Stub.from_dict(d),
             MessageType.SignedMessage: lambda d:
@@ -65,7 +83,7 @@ class SignedMessage:
         self.pk = pk
 
     @property
-    def msg(self) -> Message:
+    def msg(self) -> Optional[Message]:
         assert self.is_valid()
         d = json.loads(self.msg_bytes.decode('utf-8'))
         # del d['sig_time']
@@ -81,14 +99,14 @@ class SignedMessage:
         sig = sk.sign(msg_bytes)
         return SignedMessage(sig.message, sig.signature, sk.pubkey)
 
-    def unwrap(self) -> Tuple[Message, Pubkey]:
+    def unwrap(self) -> Tuple[Optional[Message], Pubkey]:
         assert self.is_valid()
         return self.msg, self.pk
 
-    def is_valid(self):
+    def is_valid(self) -> bool:
         try:
             self.pk.verify(self.msg_bytes, self.sig)
-        except nacl.exceptions.BadSignatureError:
+        except nacl.exceptions.BadSignatureError:  # type: ignore
             return False
         return True
 
@@ -131,18 +149,41 @@ class EncryptedMessage:
         box = nacl.secret.SecretBox(k)
         return EncryptedMessage(box.encrypt(msg_bytes))
 
+    def try_dec(
+            self, k: Enckey) -> \
+            Optional[Union[Message, SignedMessage, 'EncryptedMessage']]:
+        ''' Like dec(...), but returns None instead of allowing exception to
+        bubble up '''
+        b = nacl.secret.SecretBox(k)
+        try:
+            b.decrypt(self.ctext_nonce)
+        except (
+                nacl.exceptions.CryptoError,  # type: ignore
+                nacl.exceptions.ValueError):  # type: ignore
+            return None
+        else:
+            return self.dec(k)
+
     def dec(
             self, k: Enckey) -> \
-            Union[Message, SignedMessage, 'EncryptedMessage']:
+            Optional[Union[Message, SignedMessage, 'EncryptedMessage']]:
+        ''' Like try_dec(...) but doesn't check for decryption failure
+        exceptions '''
         b = nacl.secret.SecretBox(k)
         msg_bytes = b.decrypt(self.ctext_nonce)
         d = json.loads(msg_bytes)
         return Message.from_dict(d)
 
     @staticmethod
-    def from_dict(d: dict) -> 'EncryptedMessage':
-        ctext_nonce = b64decode(d['ctext_nonce'])
-        return EncryptedMessage(ctext_nonce)
+    def from_dict(d: dict) -> Optional['EncryptedMessage']:
+        try:
+            ctext_nonce = b64decode(d['ctext_nonce'])
+            log.warning(
+                '%s no ctext_nonce in dict',
+                EncryptedMessage.from_dict.__name__)
+            return EncryptedMessage(ctext_nonce)
+        except KeyError:
+            return None
 
     def to_dict(self) -> dict:
         return {

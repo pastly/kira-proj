@@ -1,6 +1,6 @@
 from base64 import b64encode, b64decode
 from ..user import Pubkey, User
-from . import Message, SignedMessage
+from . import Message, EncryptedMessage
 import logging
 from typing import Optional
 from enum import Enum
@@ -50,12 +50,11 @@ class AccountRespErr(Enum):
 class AccountResp(Message):
     def __init__(
             self, created: bool,
-            cred: Optional[SignedMessage],
+            cred: Optional[EncryptedMessage],
             err: Optional[AccountRespErr]):
         if created:
             assert err is None
-            assert cred is not None
-            assert type(cred.msg) == AccountCred
+            assert type(cred) == EncryptedMessage
         if not created:
             assert err is not None
             assert cred is None

@@ -9,14 +9,18 @@ from ..lib import location
 from ..lib import crypto
 from ..lib.messages.account import AccountReq, AccountResp, AccountRespErr,\
     AccountCred
-from ..lib.messages import SignedMessage
+from ..lib.messages.location import LocationUpdate, LocationUpdateResp,\
+    LocationUpdateRespErr
+from ..lib.messages import SignedMessage, EncryptedMessage, SignedMessageErr,\
+    CredErr
 import time
+from typing import Tuple, Union
 
 
 log = logging.getLogger(__name__)
 DEF_SCHEMA = user.DB_SCHEMA + location.DB_SCHEMA
 
-CRED_LIFETIME: float = 60 * 30  # 30 minutes, in seconds
+CRED_LIFETIME: float = 60 * 5  # 5 minutes, in seconds
 IDKEY: crypto.Seckey
 ENCKEY: crypto.Enckey
 
@@ -29,6 +33,45 @@ def gen_parser(sub):
     p.add_argument(
         '--gen-key', action='store_true', help='Utility function. '
         'Generate an identity key, print it, and quit.')
+
+
+def refresh_credential(cred: AccountCred) -> EncryptedMessage:
+    cred.expire = time.time() + CRED_LIFETIME
+    scred = SignedMessage.sign(cred, IDKEY)
+    ecred = EncryptedMessage.enc(scred, ENCKEY)
+    return ecred
+
+
+def validate_credential(ecred: EncryptedMessage, user: user.User) -> \
+        Tuple[bool, Union[AccountCred, CredErr]]:
+    # Caller must at least make sure the given message is an EncryptedMessage
+    assert isinstance(ecred, EncryptedMessage)
+    # make sure it was encrypted by us (will be None if it wasn't)
+    scred = ecred.try_dec(ENCKEY)
+    # make sure it contains a signed message
+    if scred is None or not isinstance(scred, SignedMessage):
+        return False, CredErr.Malformed
+    assert isinstance(scred, SignedMessage)
+    # make sure the signature is valid
+    if not scred.is_valid():
+        return False, CredErr.Malformed
+    cred, cred_pk = scred.unwrap()
+    # make sure the contained cred is actually an AccountCred
+    if not isinstance(cred, AccountCred):
+        return False, CredErr.Malformed
+    assert isinstance(cred, AccountCred)
+    assert isinstance(cred_pk, crypto.Pubkey)
+    # make sure it was signed by us
+    if not cred_pk == IDKEY.pubkey:
+        return False, CredErr.BadCred
+    # make sure it hasn't expired
+    if time.time() > cred.expire:
+        return False, CredErr.BadCred
+    # make sure credit is for correct user
+    if cred.user != user:
+        return False, CredErr.WrongUser
+    # all good, yo
+    return True, cred
 
 
 def handle_account_request(
@@ -47,7 +90,31 @@ def handle_account_request(
     u = db.insert_user(db_conn, u)
     cred = AccountCred.gen(u, CRED_LIFETIME)
     scred = SignedMessage.sign(cred, IDKEY)
-    return AccountResp(True, scred, None)
+    ecred = EncryptedMessage.enc(scred, ENCKEY)
+    return AccountResp(True, ecred, None)
+
+
+def handle_location_update(
+        db_conn: sqlite3.Connection, smsg: SignedMessage) \
+        -> LocationUpdateResp:
+    if not smsg.is_valid():
+        return LocationUpdateResp(False, None, SignedMessageErr.BadSig)
+    loc_update, pk_used = smsg.unwrap()
+    if not isinstance(loc_update, LocationUpdate):
+        return LocationUpdateResp(False, None, LocationUpdateRespErr.Malformed)
+    user = db.user_with_pk(db_conn, pk_used)
+    if not user:
+        return LocationUpdateResp(False, None, SignedMessageErr.UnknownUser)
+    # OK to assert on this as we should not have been able to contract a
+    # LocationUpdate if its cred isn't a valid EncryptedMessage
+    assert isinstance(loc_update.cred, EncryptedMessage)
+    valid_cred, cred_or_err = validate_credential(loc_update.cred, user)
+    if not valid_cred:
+        assert isinstance(cred_or_err, CredErr)
+        return LocationUpdateResp(False, None, cred_or_err)
+    assert isinstance(cred_or_err, AccountCred)
+    db.insert_location(db_conn, loc_update.loc)
+    return LocationUpdateResp(True, refresh_credential(cred_or_err), None)
 
 
 def main_gen_key():

@@ -1,6 +1,6 @@
 from ugh.lib.messages.location import LocationUpdate
 from ugh.lib.messages.account import AccountCred
-from ugh.lib.messages import EncryptedMessage
+from ugh.lib.messages import EncryptedMessage, Stub
 from ugh.lib.location import Location, Coords
 from ugh.lib.user import User
 from ugh.lib.crypto import Pubkey, Enckey
@@ -35,3 +35,37 @@ def test_locationupdate_dict_identity():
     first = LocationUpdate(LOC, cred)
     second = LocationUpdate.from_dict(first.to_dict())
     assert first == second
+
+
+def test_locationupdate_from_dict_invalid_1():
+    cred = fake_cred()
+    lu = LocationUpdate(Stub(1), cred)
+    assert isinstance(lu, LocationUpdate)
+    lu = LocationUpdate.from_dict(lu.to_dict())
+    assert lu is None
+
+
+def test_locationupdate_from_dict_invalid_2():
+    cred = fake_cred()
+    lu = LocationUpdate(Location(Stub(1), C, time.time()), cred)
+    assert isinstance(lu, LocationUpdate)
+    lu = LocationUpdate.from_dict(lu.to_dict())
+    assert lu is None
+
+
+def test_locationupdate_from_dict_invalid_3():
+    cred = fake_cred()
+    lu = LocationUpdate(Location(U, Stub(1), time.time()), cred)
+    assert isinstance(lu, LocationUpdate)
+    lu = LocationUpdate.from_dict(lu.to_dict())
+    assert lu is None
+
+
+def test_locationupdate_from_dict_invalid_4():
+    cred = fake_cred()
+    lu = LocationUpdate(LOC, cred)
+    assert isinstance(lu, LocationUpdate)
+    lu_dict = lu.to_dict()
+    del lu_dict['loc']['time']
+    lu = LocationUpdate.from_dict(lu_dict)
+    assert lu is None

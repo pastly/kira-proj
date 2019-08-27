@@ -1,5 +1,10 @@
 import sqlite3
 from .user import User
+from typing import Optional
+import logging
+
+
+log = logging.getLogger(__name__)
 
 DB_SCHEMA = '''
 CREATE TABLE Locations (
@@ -23,7 +28,7 @@ class Location:
         u = User(r['nick'], r['pk'], rowid=r['user'])
         return Location(
             u, r['coords'], r['time'],
-            rowid=r['rowid'] if 'rowid' in r else None,
+            rowid=r['rowid'],
         )
 
     def __str__(self) -> str:
@@ -45,12 +50,21 @@ class Location:
         }
 
     @staticmethod
-    def from_dict(d: dict) -> 'Location':
-        return Location(
-            User.from_dict(d['user']),
-            Coords.from_dict(d['coords']),
-            d['time'],
-        )
+    def from_dict(d: dict) -> Optional['Location']:
+        try:
+            u = User.from_dict(d['user'])
+        except KeyError:
+            log.warning('Could not create User for Location')
+            return None
+        try:
+            coords = Coords.from_dict(d['coords'])
+        except KeyError:
+            log.warning('Could not create Coords for Location')
+            return None
+        if 'time' not in d:
+            log.warning('No time in dict')
+            return None
+        return Location(u, coords, d['time'])
 
 
 class Coords:

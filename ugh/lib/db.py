@@ -100,3 +100,21 @@ def location_with_id(conn: sqlite3.Connection, id: int) -> Optional[Location]:
     if not len(ret):
         return None
     return Location.from_row(ret[0])
+
+
+def locations_for_user(
+        conn: sqlite3.Connection, u: User, reverse: bool = False) \
+        -> Iterator[Location]:
+    q = 'SELECT Locations.rowid, * from Locations '\
+        'INNER JOIN Users ON Users.rowid = Locations.user '\
+        'WHERE Locations.user=? '\
+        'ORDER BY Locations.rowid {ord}'.format(
+            ord='DESC' if reverse else 'ASC',
+        )
+    assert u.rowid is not None
+    c = conn.execute(q, (u.rowid,))
+    while True:
+        ret = c.fetchone()
+        if not ret:
+            return
+        yield Location.from_row(ret)

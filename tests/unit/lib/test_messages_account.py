@@ -1,13 +1,15 @@
 from ugh.lib.messages import account
-from ugh.lib.messages import Message, SignedMessage
+from ugh.lib.messages import Message, SignedMessage, EncryptedMessage
 from ugh.lib.user import User
-from ugh.lib.crypto import Pubkey, Seckey
+from ugh.lib.crypto import Pubkey, Seckey, Enckey
 from base64 import b64encode, b64decode
 
 U = User('Foo', Pubkey((1).to_bytes(32, byteorder='big')), rowid=420)
 SK = Seckey((28379873947).to_bytes(32, byteorder='big'))
+EK = Enckey.gen()
 ALL_ACCRESP_ARG_SETS = [
-    (True,  SignedMessage.sign(account.AccountCred.gen(U, 60), SK), None),
+    (True, EncryptedMessage.enc(
+        SignedMessage.sign(account.AccountCred.gen(U, 60), SK), EK), None),
     (False, None, account.AccountRespErr.BadSig),
     (False, None, account.AccountRespErr.BadSig),
     (False, None, account.AccountRespErr.PubkeyExists),
