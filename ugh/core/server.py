@@ -203,18 +203,6 @@ def main(args, conf):
     if not success:
         return 1
     assert db_conn
-    pk1 = (973495827942749234).to_bytes(32, byteorder='big')
-    pk2 = (98723948672836472898479).to_bytes(32, byteorder='big')
-    u1 = db.insert_user(db_conn, user.User('Jim', crypto.Pubkey(pk1)))
-    u2 = db.insert_user(db_conn, user.User('Sam', crypto.Pubkey(pk2)))
-    for u in db.get_users(db_conn):
-        log.debug('%s', u)
-    loc1 = location.Location(u1, location.Coords(42, 69), time.time())
-    loc2 = location.Location(u2, location.Coords(89.9, 0), time.time())
-    loc3 = location.Location(u2, location.Coords(0, -4.1), time.time())
-    db.insert_location(db_conn, loc1)
-    db.insert_location(db_conn, loc2)
-    db.insert_location(db_conn, loc3)
-    for loc in db.get_locations(db_conn):
-        log.debug('%s', loc)
+    log.error(
+        'There\'s nothing to do because nothing is really implemented yet')
     return 0

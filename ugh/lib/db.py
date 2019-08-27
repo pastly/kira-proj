@@ -47,29 +47,6 @@ def connect(fname: str, schema=None):
     return True, conn
 
 
-def get_users(conn: sqlite3.Connection) -> Iterator[User]:
-    q = 'SELECT rowid, * from Users'
-    c = conn.cursor()
-    c.execute(q)
-    while True:
-        ret = c.fetchone()
-        if not ret:
-            return
-        yield User.from_row(ret)
-
-
-def get_locations(conn: sqlite3.Connection) -> Iterator[Location]:
-    q = 'SELECT Locations.rowid, * from Locations '\
-        'INNER JOIN Users ON Users.rowid = Locations.user'
-    c = conn.cursor()
-    c.execute(q)
-    while True:
-        ret = c.fetchone()
-        if not ret:
-            return
-        yield Location.from_row(ret)
-
-
 def user_with_pk(conn: sqlite3.Connection, pk: Pubkey) -> Optional[User]:
     q = 'SELECT rowid, * from Users WHERE pk=?'
     c = conn.execute(q, (pk,))
