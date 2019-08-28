@@ -1,4 +1,5 @@
-from ugh.lib.messages.location import LocationUpdate
+from ugh.lib.messages.location import LocationUpdate, LocationUpdateResp,\
+    LocationUpdateRespErr
 from ugh.lib.messages.account import AccountCred
 from ugh.lib.messages import EncryptedMessage, Stub
 from ugh.lib.location import Location, Coords
@@ -69,3 +70,28 @@ def test_locationupdate_from_dict_invalid_4():
     del lu_dict['loc']['time']
     lu = LocationUpdate.from_dict(lu_dict)
     assert lu is None
+
+
+def test_locationupdateresp_dict_identity():
+    for cred in [None, fake_cred()]:
+        for err in [None, LocationUpdateRespErr.Malformed]:
+            first = LocationUpdateResp(cred, err)
+            second = LocationUpdateResp.from_dict(first.to_dict())
+            assert first == second
+
+
+def test_locationupdateresp_equal_stub():
+    lur = LocationUpdateResp(fake_cred(), None)
+    assert lur != Stub(1)
+
+
+def test_locationupdateresp_from_dict_invalid_1():
+    d = LocationUpdateResp(fake_cred(), None).to_dict()
+    del d['err']
+    assert LocationUpdateResp.from_dict(d) is None
+
+
+def test_locationupdateresp_from_dict_invalid_2():
+    d = LocationUpdateResp(fake_cred(), None).to_dict()
+    del d['cred']
+    assert LocationUpdateResp.from_dict(d) is None

@@ -41,12 +41,9 @@ class LocationUpdateRespErr(MessageErr):
 class LocationUpdateResp(Message):
     def __init__(
             self,
-            ok: bool,
             cred: Optional[EncryptedMessage],
             err: Optional[MessageErr]):
-        assert not ok and err is not None \
-            or ok and err is None
-        self.ok = ok
+        self.ok = err is None
         self.cred = cred
         self.err = err
 
@@ -54,11 +51,26 @@ class LocationUpdateResp(Message):
         return 'LocationUpdateResp<%s %s %s>' % (self.ok, self.cred, self.err)
 
     def __eq__(self, rhs) -> bool:
-        raise NotImplementedError()
+        if not isinstance(rhs, LocationUpdateResp):
+            return False
+        return self.to_dict() == rhs.to_dict()
 
     def to_dict(self) -> dict:
-        raise NotImplementedError()
+        cred = None if self.cred is None else self.cred.to_dict()
+        err = None if self.err is None else self.err.value
+        d = {
+            'err': err,
+            'cred': cred,
+        }
+        d.update(super().to_dict())
+        return d
 
     @staticmethod
-    def from_dict(d: dict) -> 'LocationUpdateResp':
-        raise NotImplementedError()
+    def from_dict(d: dict) -> Optional['LocationUpdateResp']:
+        if 'err' not in d or 'cred' not in d:
+            return None
+        cred = None if d['cred'] is None \
+            else EncryptedMessage.from_dict(d['cred'])
+        err = None if d['err'] is None \
+            else LocationUpdateRespErr(d['err'])
+        return LocationUpdateResp(cred, err)

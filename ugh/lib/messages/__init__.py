@@ -35,6 +35,7 @@ class MessageType(Enum):
     AccountResp = 'ACCOUNT_RESP'
     AccountCred = 'ACCOUNT_CRED'
     LocationUpdate = 'LOCATION_UPDATE'
+    LocationUpdateResp = 'LOCATION_UPDATE_RESP'
     GetInfo = 'GET_INFO'
     GetInfoLocation = 'GET_INFO_LOCATION'
     GetInfoResp = 'GET_INFO_RESP'
@@ -62,6 +63,8 @@ class Message:
                 account.AccountCred.from_dict(d),
             MessageType.LocationUpdate: lambda d:
                 location.LocationUpdate.from_dict(d),
+            MessageType.LocationUpdateResp: lambda d:
+                location.LocationUpdateResp.from_dict(d),
             MessageType.GetInfo: lambda d:
                 getinfo.GetInfo.from_dict(d),
             MessageType.GetInfoLocation: lambda d:
@@ -82,6 +85,7 @@ class Message:
                 account.AccountResp: MessageType.AccountResp,
                 account.AccountCred: MessageType.AccountCred,
                 location.LocationUpdate: MessageType.LocationUpdate,
+                location.LocationUpdateResp: MessageType.LocationUpdateResp,
                 getinfo.GetInfo: MessageType.GetInfo,
                 getinfo.GetInfoLocation: MessageType.GetInfoLocation,
                 getinfo.GetInfoResp: MessageType.GetInfoResp,
