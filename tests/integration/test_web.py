@@ -2,7 +2,7 @@ import pytest
 from ugh.core import server
 from ugh.lib import db, crypto, user, location as loca
 from ugh.lib.messages import SignedMessage, Message, EncryptedMessage
-from ugh.lib.messages import account, location
+from ugh.lib.messages import account, location, getinfo
 import flask
 import time
 
@@ -79,3 +79,24 @@ def test_location_update_happy(client):
     assert resp.err is None
     valid_cred, _ = server.validate_credential(resp.cred, u)
     assert valid_cred
+
+
+def test_getinfo_location(client):
+    u_us = db.user_with_pk(flask.g.db, U1.pk)
+    u_them = db.user_with_pk(flask.g.db, U2.pk)
+    ecred = get_cred(u_us)
+    loc = loca.Location(u_them, loca.Coords(12, 34), time.time())
+    db.insert_location(flask.g.db, loc)
+    gil = getinfo.GetInfoLocation(u_them.pk, ecred, count=1)
+    req = SignedMessage.sign(gil, SK1)
+    rv = client.post(
+        '/getinfo/location',
+        json=req.to_dict(),
+    )
+    assert rv.status_code == 200
+    resp = Message.from_dict(rv.json)
+    assert isinstance(resp, getinfo.GetInfoRespLocation)
+    assert resp.ok
+    assert resp.err is None
+    assert len(resp.locs) == 1
+    assert resp.locs[0] == loc

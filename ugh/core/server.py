@@ -215,6 +215,15 @@ def r_location_update():
     return resp.to_dict()
 
 
+@app.route('/getinfo/location', methods=['POST'])
+def r_getinfo_location():
+    if flask.request.content_type != 'application/json':
+        return bad_req_not_json()
+    req = Message.from_dict(flask.request.json)
+    resp = handle_getinfo(flask.g.db, req)
+    return resp.to_dict()
+
+
 def main(args, conf):
     if args.gen_key:
         return main_gen_key()

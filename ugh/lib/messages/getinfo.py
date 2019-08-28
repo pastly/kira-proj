@@ -120,7 +120,7 @@ class GetInfoRespLocation(GetInfoResp):
 
     def to_dict(self) -> dict:
         d = {
-            'locs': self.locs,
+            'locs': [loc.to_dict() for loc in self.locs],
         }
         d.update(super().to_dict())
         return d
@@ -132,7 +132,13 @@ class GetInfoRespLocation(GetInfoResp):
         gir = GetInfoResp.from_dict(d)
         if gir is None:
             return None
-        return GetInfoRespLocation(d['locs'], gir.err)
+        locs = []
+        for loc in d['locs']:
+            loc = Location.from_dict(loc)
+            if loc is None:
+                return None
+            locs.append(loc)
+        return GetInfoRespLocation(locs, gir.err)
 
     def __str__(self) -> str:
         return 'GetInfoRespLocation<{ok} {e} [{n} locs]>'.format(
