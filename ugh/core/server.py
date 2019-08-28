@@ -4,18 +4,20 @@ import logging
 import itertools
 import sqlite3
 import nacl
+import flask
 from ..lib import db
 from ..lib import user
 from ..lib import location as loca
 from ..lib import crypto
 from ..lib.messages import account, location, getinfo
 from ..lib.messages import SignedMessage, EncryptedMessage, SignedMessageErr,\
-    CredErr
+    CredErr, Message
 import time
 from typing import Tuple, Union
 
 
 log = logging.getLogger(__name__)
+app = flask.Flask(__name__)
 DEF_SCHEMA = user.DB_SCHEMA + loca.DB_SCHEMA
 
 CRED_LIFETIME: float = 60 * 5  # 5 minutes, in seconds
@@ -99,27 +101,24 @@ def handle_location_update(
         db_conn: sqlite3.Connection, smsg: SignedMessage) \
         -> location.LocationUpdateResp:
     if not smsg.is_valid():
-        return location.LocationUpdateResp(
-            False, None, SignedMessageErr.BadSig)
+        return location.LocationUpdateResp(None, SignedMessageErr.BadSig)
     loc_update, pk_used = smsg.unwrap()
     if not isinstance(loc_update, location.LocationUpdate):
         return location.LocationUpdateResp(
-            False, None, location.LocationUpdateRespErr.Malformed)
+            None, location.LocationUpdateRespErr.Malformed)
     user = db.user_with_pk(db_conn, pk_used)
     if not user:
-        return location.LocationUpdateResp(
-            False, None, SignedMessageErr.UnknownUser)
+        return location.LocationUpdateResp(None, SignedMessageErr.UnknownUser)
     # OK to assert on this as we should not have been able to contract a
     # LocationUpdate if its cred isn't a valid EncryptedMessage
     assert isinstance(loc_update.cred, EncryptedMessage)
     valid_cred, cred_or_err = validate_credential(loc_update.cred, user)
     if not valid_cred:
         assert isinstance(cred_or_err, CredErr)
-        return location.LocationUpdateResp(False, None, cred_or_err)
+        return location.LocationUpdateResp(None, cred_or_err)
     assert isinstance(cred_or_err, account.AccountCred)
     db.insert_location(db_conn, loc_update.loc)
-    return location.LocationUpdateResp(
-        True, refresh_credential(cred_or_err), None)
+    return location.LocationUpdateResp(refresh_credential(cred_or_err), None)
 
 
 def handle_getinfo(
@@ -190,6 +189,32 @@ def update_globals(conf, sk: crypto.Seckey, ek: crypto.Enckey):
         CRED_LIFETIME = lifetime
 
 
+def bad_request(err_msg: str) -> Tuple[dict, int]:
+    return {'err': err_msg}, 400
+
+
+def bad_req_not_json() -> Tuple[dict, int]:
+    return bad_request('Must speak json, idiot')
+
+
+@app.route('/account/create', methods=['POST'])
+def r_account_create():
+    if flask.request.content_type != 'application/json':
+        return bad_req_not_json()
+    req = Message.from_dict(flask.request.json)
+    resp = handle_account_request(flask.g.db, req)
+    return resp.to_dict()
+
+
+@app.route('/location/update', methods=['POST'])
+def r_location_update():
+    if flask.request.content_type != 'application/json':
+        return bad_req_not_json()
+    req = Message.from_dict(flask.request.json)
+    resp = handle_location_update(flask.g.db, req)
+    return resp.to_dict()
+
+
 def main(args, conf):
     if args.gen_key:
         return main_gen_key()
@@ -203,6 +228,12 @@ def main(args, conf):
     if not success:
         return 1
     assert db_conn
-    log.error(
-        'There\'s nothing to do because nothing is really implemented yet')
-    return 0
+    with app.app_context():
+        assert 'db' not in flask.g
+        flask.g.db = db_conn
+        app.config['ENV'] = 'development'
+        app.run(
+            host=conf['server']['listen_host'],
+            port=conf['server']['listen_port'],
+            debug=True
+        )

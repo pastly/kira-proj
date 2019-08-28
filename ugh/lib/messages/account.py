@@ -66,15 +66,17 @@ class AccountResp(Message):
     def from_dict(d: dict) -> 'AccountResp':
         return AccountResp(
             d['created'],
-            d['cred'],
+            EncryptedMessage.from_dict(d['cred'])
+            if d['cred'] is not None else None,
             d['err'],
         )
 
     def to_dict(self) -> dict:
+        cred = self.cred.to_dict() if self.cred is not None else None
         d = {
             'created': self.created,
             'err': self.err,
-            'cred': self.cred,
+            'cred': cred,
         }
         d.update(super().to_dict())
         return d

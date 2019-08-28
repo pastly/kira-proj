@@ -59,13 +59,17 @@ def test_accountresp_to_dict():
         ar = account.AccountResp(created, cred, err)
         d = ar.to_dict()
         assert d['created'] == created
-        assert d['cred'] == cred
+        assert d['cred'] == (cred.to_dict() if cred is not None else None)
         assert d['err'] == err
 
 
 def test_accountresp_from_dict():
     for created, cred, err in ALL_ACCRESP_ARG_SETS:
-        d = {'created': created, 'cred': cred, 'err': err}
+        d = {
+            'created': created,
+            'cred': cred.to_dict() if cred is not None else None,
+            'err': err
+        }
         ar = account.AccountResp.from_dict(d)
         assert ar.created == created
         assert ar.cred == cred

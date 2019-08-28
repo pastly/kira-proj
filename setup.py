@@ -80,7 +80,7 @@ setup(
         ]
     },
     install_requires=[
-        'pynacl',
+        'pynacl', 'flask',
     ],
     extras_require={
         'test': ['pytest', 'coverage'],
