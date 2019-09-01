@@ -22,6 +22,8 @@ class User:
 
     @staticmethod
     def from_dict(d: dict):
+        if 'pk' not in d or 'nick' not in d:
+            return None
         pk = Pubkey(b64decode(d['pk']))
         return User(
             d['nick'], pk, rowid=d['rowid'] if 'rowid' in d else None)

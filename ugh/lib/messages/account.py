@@ -1,5 +1,6 @@
 from base64 import b64encode, b64decode
-from ..user import Pubkey, User
+from ..user import User
+from ..crypto import Pubkey
 from . import Message, EncryptedMessage
 import logging
 from typing import Optional
@@ -128,3 +129,76 @@ class AccountCred(Message):
     def __eq__(self, rhs) -> bool:
         return self.user == rhs.user \
             and self.expire == rhs.expire
+
+
+class AuthReq(Message):
+    def __init__(self, user_pk: Pubkey):
+        self.user_pk = user_pk
+
+    def to_dict(self) -> dict:
+        d = {
+            'user_pk': b64encode(bytes(self.user_pk)).decode('utf-8'),
+        }
+        d.update(super().to_dict())
+        return d
+
+    @staticmethod
+    def from_dict(d: dict) -> Optional['AuthReq']:
+        if 'user_pk' not in d:
+            return None
+        return AuthReq(Pubkey(b64decode(d['user_pk'])))
+
+    def __str__(self) -> str:
+        return 'AuthReq<%s>' % (self.user_pk,)
+
+
+class AuthChallenge(Message):
+    def __init__(self, user: User, expire: float):
+        assert user.rowid is not None
+        self.user = user
+        self.expire = expire
+
+    def to_dict(self) -> dict:
+        d = {
+            'user': self.user.to_dict(),
+            'expire': self.expire,
+        }
+        d.update(super().to_dict())
+        return d
+
+    @staticmethod
+    def from_dict(d: dict) -> Optional['AuthChallenge']:
+        if 'user' not in d or 'expire' not in d:
+            return None
+        u = User.from_dict(d['user'])
+        if u is None:
+            return None
+        return AuthChallenge(u, d['expire'])
+
+    def __str__(self) -> str:
+        return 'AuthChallenge<%s %f>' % (
+            self.user, self.expire)
+
+
+class AuthChallengeResp(Message):
+    def __init__(self, enc_chal: EncryptedMessage):
+        self.enc_chal = enc_chal
+
+    def to_dict(self) -> dict:
+        d = {
+            'enc_chal': self.enc_chal.to_dict(),
+        }
+        d.update(super().to_dict())
+        return d
+
+    @staticmethod
+    def from_dict(d: dict) -> Optional['AuthChallengeResp']:
+        if 'enc_chal' not in d:
+            return None
+        enc_chal = EncryptedMessage.from_dict(d['enc_chal'])
+        if enc_chal is None:
+            return None
+        return AuthChallengeResp(enc_chal)
+
+    def __str__(self) -> str:
+        return 'AuthChallengeResp<%s>' % (self.enc_chal,)

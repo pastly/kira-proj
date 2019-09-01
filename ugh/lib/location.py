@@ -51,18 +51,13 @@ class Location:
 
     @staticmethod
     def from_dict(d: dict) -> Optional['Location']:
-        try:
-            u = User.from_dict(d['user'])
-        except KeyError:
-            log.warning('Could not create User for Location')
+        if 'user' not in d or 'coords' not in d or 'time' not in d:
             return None
-        try:
-            coords = Coords.from_dict(d['coords'])
-        except KeyError:
-            log.warning('Could not create Coords for Location')
+        u = User.from_dict(d['user'])
+        if u is None:
             return None
-        if 'time' not in d:
-            log.warning('No time in dict')
+        coords = Coords.from_dict(d['coords'])
+        if coords is None:
             return None
         return Location(u, coords, d['time'])
 
@@ -84,7 +79,9 @@ class Coords:
         }
 
     @staticmethod
-    def from_dict(d: dict) -> 'Coords':
+    def from_dict(d: dict) -> Optional['Coords']:
+        if 'lat' not in d or 'long' not in d:
+            return None
         return Coords(d['lat'], d['long'])
 
     def __eq__(self, rhs) -> bool:

@@ -35,3 +35,24 @@ def test_user_from_dict():
             pk_b64_bytes = b64encode(bytes(pk)).decode('utf-8')
             u_actual = User.from_dict({'nick': n, 'pk': pk_b64_bytes})
             assert u_expect == u_actual
+
+
+def test_user_dict_identity():
+    for n in NICK_VALS:
+        for pk in [Pubkey(v.to_bytes(32, byteorder='big')) for v in PK_VALS]:
+            for rowid in {None, 44}:
+                first = User(n, pk, rowid=rowid)
+                second = User.from_dict(first.to_dict())
+                assert first == second
+
+
+def test_user_dict_no_nick():
+    d = User('', Pubkey((0).to_bytes(32, byteorder='big'))).to_dict()
+    del d['nick']
+    assert User.from_dict(d) is None
+
+
+def test_user_dict_no_pk():
+    d = User('', Pubkey((0).to_bytes(32, byteorder='big'))).to_dict()
+    del d['pk']
+    assert User.from_dict(d) is None

@@ -34,6 +34,9 @@ class MessageType(Enum):
     AccountReq = 'ACCOUNT_REQ'
     AccountResp = 'ACCOUNT_RESP'
     AccountCred = 'ACCOUNT_CRED'
+    AuthReq = 'AUTH_REQ'
+    AuthChallenge = 'AUTH_CHALLENGE'
+    AuthChallengeResp = 'AUTH_CHALLENGE_RESP'
     LocationUpdate = 'LOCATION_UPDATE'
     LocationUpdateResp = 'LOCATION_UPDATE_RESP'
     GetInfo = 'GET_INFO'
@@ -61,6 +64,12 @@ class Message:
                 account.AccountResp.from_dict(d),
             MessageType.AccountCred: lambda d:
                 account.AccountCred.from_dict(d),
+            MessageType.AuthReq: lambda d:
+                account.AuthReq.from_dict(d),
+            MessageType.AuthChallenge: lambda d:
+                account.AuthChallenge.from_dict(d),
+            MessageType.AuthChallengeResp: lambda d:
+                account.AuthChallengeResp.from_dict(d),
             MessageType.LocationUpdate: lambda d:
                 location.LocationUpdate.from_dict(d),
             MessageType.LocationUpdateResp: lambda d:
@@ -84,6 +93,9 @@ class Message:
                 account.AccountReq: MessageType.AccountReq,
                 account.AccountResp: MessageType.AccountResp,
                 account.AccountCred: MessageType.AccountCred,
+                account.AuthReq: MessageType.AuthReq,
+                account.AuthChallenge: MessageType.AuthChallenge,
+                account.AuthChallengeResp: MessageType.AuthChallengeResp,
                 location.LocationUpdate: MessageType.LocationUpdate,
                 location.LocationUpdateResp: MessageType.LocationUpdateResp,
                 getinfo.GetInfo: MessageType.GetInfo,
@@ -223,7 +235,7 @@ class EncryptedMessage:
 
 
 class Stub(Message):
-    def __init__(self, i):
+    def __init__(self, i: int):
         self.i = i
 
     def to_dict(self) -> dict:
@@ -239,4 +251,6 @@ class Stub(Message):
         return 'Stub<%d>' % (self.i,)
 
     def __eq__(self, rhs) -> bool:
+        if not isinstance(rhs, Stub):
+            return False
         return self.i == rhs.i

@@ -1,8 +1,9 @@
 from ugh.lib.messages import account
-from ugh.lib.messages import Message, SignedMessage, EncryptedMessage
+from ugh.lib.messages import Message, SignedMessage, EncryptedMessage, Stub
 from ugh.lib.user import User
 from ugh.lib.crypto import Pubkey, Seckey, Enckey
 from base64 import b64encode, b64decode
+import time
 
 U = User('Foo', Pubkey((1).to_bytes(32, byteorder='big')), rowid=420)
 SK = Seckey((28379873947).to_bytes(32, byteorder='big'))
@@ -108,3 +109,75 @@ def test_accountcred_str():
     s = 'AccountCred<%s %s>' % (U, 1)
     ac = account.AccountCred(U, 1)
     assert str(ac) == s
+
+
+def test_authreq_dict_identity():
+    first = account.AuthReq(U.pk)
+    second = account.AuthReq.from_dict(first.to_dict())
+    assert first == second
+
+
+def test_authreq_dict_no_user():
+    d = account.AuthReq(U.pk).to_dict()
+    del d['user_pk']
+    assert account.AuthReq.from_dict(d) is None
+
+
+def test_authreq_str():
+    ar = account.AuthReq(U.pk)
+    s = 'AuthReq<%s>' % (U.pk,)
+    assert str(ar) == s
+
+
+def test_authchallenge_dict_identity():
+    u = User(U.nick, U.pk, rowid=1)
+    first = account.AuthChallenge(u, time.time())
+    second = account.AuthChallenge.from_dict(first.to_dict())
+    assert first == second
+
+
+def test_authchallenge_dict_no_user():
+    u = User(U.nick, U.pk, rowid=1)
+    d = account.AuthChallenge(u, time.time()).to_dict()
+    del d['user']
+    assert account.AuthChallenge.from_dict(d) is None
+
+
+def test_authchallenge_dict_bad_user():
+    u = User(U.nick, U.pk, rowid=1)
+    d = account.AuthChallenge(u, time.time()).to_dict()
+    del d['user']['nick']
+    assert account.AuthChallenge.from_dict(d) is None
+
+
+def test_authchallenge_str():
+    u = User(U.nick, U.pk, rowid=1)
+    now = time.time()
+    s = 'AuthChallenge<%s %f>' % (u, now)
+    assert str(account.AuthChallenge(u, now)) == s
+
+
+def test_authchallenegeresp_dict_identity():
+    echal = EncryptedMessage.enc(Stub(1), EK)
+    first = account.AuthChallengeResp(echal)
+    second = account.AuthChallengeResp.from_dict(first.to_dict())
+    assert first == second
+
+
+def test_authchallengeresp_dict_no_enc_chal():
+    echal = EncryptedMessage.enc(Stub(1), EK)
+    d = account.AuthChallengeResp(echal).to_dict()
+    del d['enc_chal']
+    assert account.AuthChallengeResp.from_dict(d) is None
+
+
+def test_authchallengeresp_dict_bad_enc_chal():
+    d = account.AuthChallengeResp(Stub(1)).to_dict()
+    assert account.AuthChallengeResp.from_dict(d) is None
+
+
+def test_authchallengeresp_str():
+    echal = EncryptedMessage.enc(Stub(1), EK)
+    acr = account.AuthChallengeResp(echal)
+    s = 'AuthChallengeResp<%s>' % (echal,)
+    assert str(acr) == s
