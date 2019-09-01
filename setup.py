@@ -83,7 +83,7 @@ setup(
         'pynacl', 'flask',
     ],
     extras_require={
-        'test': ['pytest', 'coverage'],
+        'test': ['pytest', 'coverage', 'tox'],
         'dev': ['flake8', 'vulture', 'mypy'],
     },
 )
