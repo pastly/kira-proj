@@ -76,25 +76,25 @@ def validate_credential(ecred: EncryptedMessage, user: user.User) -> \
 
 def handle_account_request(
         db_conn: sqlite3.Connection, smsg: SignedMessage) \
-        -> account.AccountResp:
+        -> account.AuthResp:
     if not smsg.is_valid():
-        return account.AccountResp(False, None, account.AccountRespErr.BadSig)
+        return account.AuthResp(None, account.AuthRespErr.BadSig)
     req, pk_used = smsg.unwrap()
     if not isinstance(req, account.AccountReq):
-        return account.AccountResp(
-            False, None, account.AccountRespErr.Malformed)
+        return account.AuthResp(
+            None, account.AuthRespErr.Malformed)
     if req.pk != pk_used:
-        return account.AccountResp(
-            False, None, account.AccountRespErr.WrongPubkey)
+        return account.AuthResp(
+            None, account.AuthRespErr.WrongPubkey)
     if db.user_with_pk(db_conn, req.pk):
-        return account.AccountResp(
-            False, None, account.AccountRespErr.PubkeyExists)
+        return account.AuthResp(
+            None, account.AuthRespErr.PubkeyExists)
     u = user.User(req.nick, req.pk)
     u = db.insert_user(db_conn, u)
     cred = account.AccountCred.gen(u, CRED_LIFETIME)
     scred = SignedMessage.sign(cred, IDKEY)
     ecred = EncryptedMessage.enc(scred, ENCKEY)
-    return account.AccountResp(True, ecred, None)
+    return account.AuthResp(ecred, None)
 
 
 def handle_location_update(

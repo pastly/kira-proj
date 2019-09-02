@@ -103,7 +103,6 @@ def test_account_req_resp_happy():
     sk = crypto.Seckey((333).to_bytes(32, byteorder='big'))
     req = SignedMessage.sign(account.AccountReq('Saul3', sk.pubkey), sk)
     resp = server.handle_account_request(db_conn, req)
-    assert resp.created
     assert resp.err is None
     assert isinstance(resp.cred, EncryptedMessage)
     assert isinstance(resp.cred.dec(server.ENCKEY), SignedMessage)
@@ -129,8 +128,8 @@ def test_account_req_resp_malformed():
     # Supposed to be signing an AccountReq, but instead signing a junk message
     req = SignedMessage.sign(Stub(420), sk)
     resp = server.handle_account_request(db_conn, req)
-    assert not resp.created
-    assert resp.err == account.AccountRespErr.Malformed
+    assert resp.cred is None
+    assert resp.err == account.AuthRespErr.Malformed
 
 
 def test_account_req_resp_wrongpubkey():
@@ -143,8 +142,8 @@ def test_account_req_resp_wrongpubkey():
     req = SignedMessage.sign(
         account.AccountReq(u.nick, u.pk), sk_wrong)
     resp = server.handle_account_request(db_conn, req)
-    assert not resp.created
-    assert resp.err == account.AccountRespErr.WrongPubkey
+    assert resp.cred is None
+    assert resp.err == account.AuthRespErr.WrongPubkey
 
 
 def test_account_req_resp_badsig():
@@ -155,8 +154,8 @@ def test_account_req_resp_badsig():
     # change message after it has been signed so that it won't verify
     req.msg_bytes = b'foo'
     resp = server.handle_account_request(db_conn, req)
-    assert not resp.created
-    assert resp.err is account.AccountRespErr.BadSig
+    assert resp.cred is None
+    assert resp.err is account.AuthRespErr.BadSig
 
 
 def test_account_req_resp_pubkeyexists():
@@ -165,8 +164,8 @@ def test_account_req_resp_pubkeyexists():
     u = user.User('Saul3', SK1.pubkey)
     req = SignedMessage.sign(account.AccountReq(u.nick, u.pk), SK1)
     resp = server.handle_account_request(db_conn, req)
-    assert not resp.created
-    assert resp.err == account.AccountRespErr.PubkeyExists
+    assert resp.cred is None
+    assert resp.err == account.AuthRespErr.PubkeyExists
 
 
 def test_location_update_happy():

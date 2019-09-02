@@ -40,7 +40,7 @@ class AccountReq(Message):
             and self.pk == rhs.pk
 
 
-class AccountRespErr(Enum):
+class AuthRespErr(Enum):
     BadSig = 'The signature is invalid'
     PubkeyExists = 'A user with that pubkey already exists'
     Malformed = 'Message was not a valid AccountReq'
@@ -48,48 +48,55 @@ class AccountRespErr(Enum):
         'given Pubkey'
 
 
-class AccountResp(Message):
+class AuthResp(Message):
     def __init__(
-            self, created: bool,
+            self,
             cred: Optional[EncryptedMessage],
-            err: Optional[AccountRespErr]):
-        if created:
-            assert err is None
-            assert type(cred) == EncryptedMessage
-        if not created:
-            assert err is not None
+            err: Optional[AuthRespErr]):
+        if err is None:
+            assert cred is not None
+        else:
             assert cred is None
-        self.created = created
         self.cred = cred
         self.err = err
 
     @staticmethod
-    def from_dict(d: dict) -> 'AccountResp':
-        return AccountResp(
-            d['created'],
-            EncryptedMessage.from_dict(d['cred'])
-            if d['cred'] is not None else None,
-            d['err'],
-        )
+    def from_dict(d: dict) -> Optional['AuthResp']:
+        if 'cred' not in d or 'err' not in d:
+            return None
+        # both can't be None
+        if d['cred'] is None and d['err'] is None:
+            return None
+        # both can't be non-None either though
+        if d['cred'] is not None and d['err'] is not None:
+            return None
+        # if cred exists, try to make its object
+        cred = None if d['cred'] is None \
+            else EncryptedMessage.from_dict(d['cred'])
+        # if cred exists but couldn't make object, fail
+        if cred is None and d['cred'] is not None:
+            return None
+        # make err if exists
+        err = None if d['err'] is None else AuthRespErr(d['err'])
+        return AuthResp(cred, err)
 
     def to_dict(self) -> dict:
         cred = self.cred.to_dict() if self.cred is not None else None
+        err = None if self.err is None else self.err.value
         d = {
-            'created': self.created,
-            'err': self.err,
+            'err': err,
             'cred': cred,
         }
         d.update(super().to_dict())
         return d
 
     def __eq__(self, rhs) -> bool:
-        return self.created == rhs.created \
-            and self.err == rhs.err \
+        return self.err == rhs.err \
             and self.cred == rhs.cred
 
     def __str__(self) -> str:
-        return 'AccountResp<created={c} err={e} cred={cred}>'.format(
-            c=self.created, e=self.err, cred=self.cred,
+        return 'AuthResp<err={e} cred={cred}>'.format(
+            e=self.err, cred=self.cred,
         )
 
 

@@ -32,7 +32,7 @@ class MessageType(Enum):
     SignedMessage = 'SIGNED_MESSAGE'  # not a subclass of Message
     EncryptedMessage = 'ENCRYPTED_MESSAGE'  # not a subclass of Message
     AccountReq = 'ACCOUNT_REQ'
-    AccountResp = 'ACCOUNT_RESP'
+    AuthResp = 'ACCOUNT_RESP'
     AccountCred = 'ACCOUNT_CRED'
     AuthReq = 'AUTH_REQ'
     AuthChallenge = 'AUTH_CHALLENGE'
@@ -60,8 +60,8 @@ class Message:
                 EncryptedMessage.from_dict(d),
             MessageType.AccountReq: lambda d:
                 account.AccountReq.from_dict(d),
-            MessageType.AccountResp: lambda d:
-                account.AccountResp.from_dict(d),
+            MessageType.AuthResp: lambda d:
+                account.AuthResp.from_dict(d),
             MessageType.AccountCred: lambda d:
                 account.AccountCred.from_dict(d),
             MessageType.AuthReq: lambda d:
@@ -91,7 +91,7 @@ class Message:
             'type': {
                 Stub: MessageType.Stub,
                 account.AccountReq: MessageType.AccountReq,
-                account.AccountResp: MessageType.AccountResp,
+                account.AuthResp: MessageType.AuthResp,
                 account.AccountCred: MessageType.AccountCred,
                 account.AuthReq: MessageType.AuthReq,
                 account.AuthChallenge: MessageType.AuthChallenge,

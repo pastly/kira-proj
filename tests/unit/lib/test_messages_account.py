@@ -9,13 +9,13 @@ U = User('Foo', Pubkey((1).to_bytes(32, byteorder='big')), rowid=420)
 SK = Seckey((28379873947).to_bytes(32, byteorder='big'))
 EK = Enckey.gen()
 ALL_ACCRESP_ARG_SETS = [
-    (True, EncryptedMessage.enc(
+    (EncryptedMessage.enc(
         SignedMessage.sign(account.AccountCred.gen(U, 60), SK), EK), None),
-    (False, None, account.AccountRespErr.BadSig),
-    (False, None, account.AccountRespErr.BadSig),
-    (False, None, account.AccountRespErr.PubkeyExists),
-    (False, None, account.AccountRespErr.Malformed),
-    (False, None, account.AccountRespErr.WrongPubkey),
+    (None, account.AuthRespErr.BadSig),
+    (None, account.AuthRespErr.BadSig),
+    (None, account.AuthRespErr.PubkeyExists),
+    (None, account.AuthRespErr.Malformed),
+    (None, account.AuthRespErr.WrongPubkey),
 ]
 
 
@@ -48,41 +48,65 @@ def test_accountreq_str():
     assert str(ar) == s
 
 
-def test_accountresp_dict_identity():
+def test_authresp_dict_identity():
     for args in ALL_ACCRESP_ARG_SETS:
-        first = account.AccountResp(*args)
+        first = account.AuthResp(*args)
         second = Message.from_dict(first.to_dict())
         assert first == second
 
 
-def test_accountresp_to_dict():
-    for created, cred, err in ALL_ACCRESP_ARG_SETS:
-        ar = account.AccountResp(created, cred, err)
+def test_authresp_to_dict():
+    for cred, err in ALL_ACCRESP_ARG_SETS:
+        ar = account.AuthResp(cred, err)
         d = ar.to_dict()
-        assert d['created'] == created
         assert d['cred'] == (cred.to_dict() if cred is not None else None)
-        assert d['err'] == err
+        if err is None:
+            assert d['err'] is None
+        else:
+            assert d['err'] == err.value
 
 
-def test_accountresp_from_dict():
-    for created, cred, err in ALL_ACCRESP_ARG_SETS:
+def test_authresp_from_dict():
+    for cred, err in ALL_ACCRESP_ARG_SETS:
         d = {
-            'created': created,
             'cred': cred.to_dict() if cred is not None else None,
             'err': err
         }
-        ar = account.AccountResp.from_dict(d)
-        assert ar.created == created
+        ar = account.AuthResp.from_dict(d)
         assert ar.cred == cred
         assert ar.err == err
 
 
-def test_accountresp_str():
-    fmt = 'AccountResp<created={c} err={e} cred={cred}>'
-    for created, cred, err in ALL_ACCRESP_ARG_SETS:
-        s = fmt.format(c=created, e=err, cred=cred)
-        ar = account.AccountResp(created, cred, err)
+def test_authresp_dict_both_cred_and_err():
+    ecred = EncryptedMessage.enc(
+        SignedMessage.sign(account.AccountCred.gen(U, 60), SK), EK)
+    err = account.AuthRespErr.Malformed
+    d = {'cred': ecred, 'err': err}
+    assert account.AuthResp.from_dict(d) is None
+
+
+def test_authresp_dict_no_cred_or_err():
+    d = {'cred': None, 'err': None}
+    assert account.AuthResp.from_dict(d) is None
+
+
+def test_authresp_str():
+    fmt = 'AuthResp<err={e} cred={cred}>'
+    for cred, err in ALL_ACCRESP_ARG_SETS:
+        s = fmt.format(e=err, cred=cred)
+        ar = account.AuthResp(cred, err)
         assert str(ar) == s
+
+
+def test_authresp_dict_no_cred():
+    d = account.AuthResp(Stub(1), None).to_dict()
+    del d['cred']
+    assert account.AuthResp.from_dict(d) is None
+
+
+def test_authresp_dict_bad_cred():
+    d = account.AuthResp(Stub(1), None).to_dict()
+    assert account.AuthResp.from_dict(d) is None
 
 
 def test_accountcred_dict_identity():

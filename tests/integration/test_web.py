@@ -42,8 +42,7 @@ def test_account_create_happy(client):
         json=req.to_dict(),
     )
     resp = Message.from_dict(rv.json)
-    assert isinstance(resp, account.AccountResp)
-    assert resp.created
+    assert isinstance(resp, account.AuthResp)
     assert resp.err is None
     assert resp.cred is not None
     user_db = db.user_with_pk(flask.g.db, sk.pubkey)
