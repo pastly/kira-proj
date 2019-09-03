@@ -67,7 +67,7 @@ class AuthResp(Message):
         # both can't be None
         if d['cred'] is None and d['err'] is None:
             return None
-        # both can't be non-None either though
+        # both can't be non-None either thorela
         if d['cred'] is not None and d['err'] is not None:
             return None
         # if cred exists, try to make its object

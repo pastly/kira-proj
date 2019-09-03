@@ -1,7 +1,7 @@
 from .util import config
 from .core import client
 from .core import server
-from ugh import __version__
+from rela import __version__
 
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import logging

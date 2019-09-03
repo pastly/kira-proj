@@ -1,11 +1,11 @@
-from ugh.lib import db
-from ugh.lib import user
-from ugh.lib import crypto
-from ugh.lib import location as loca
-from ugh.lib.messages import Stub, SignedMessage, EncryptedMessage, CredErr,\
+from rela.lib import db
+from rela.lib import user
+from rela.lib import crypto
+from rela.lib import location as loca
+from rela.lib.messages import Stub, SignedMessage, EncryptedMessage, CredErr,\
     SignedMessageErr
-from ugh.lib.messages import account, getinfo, location
-from ugh.core import server
+from rela.lib.messages import account, getinfo, location
+from rela.core import server
 import time
 import random
 

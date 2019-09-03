@@ -1,4 +1,4 @@
-from ugh.lib.crypto import Pubkey, Enckey
+from rela.lib.crypto import Pubkey, Enckey
 from base64 import b64encode
 
 

@@ -1,8 +1,8 @@
 import pytest
-from ugh.core import server
-from ugh.lib import db, crypto, user, location as loca
-from ugh.lib.messages import SignedMessage, Message, EncryptedMessage
-from ugh.lib.messages import account, location, getinfo
+from rela.core import server
+from rela.lib import db, crypto, user, location as loca
+from rela.lib.messages import SignedMessage, Message, EncryptedMessage
+from rela.lib.messages import account, location, getinfo
 import flask
 import time
 

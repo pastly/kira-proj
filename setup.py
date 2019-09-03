@@ -7,7 +7,7 @@ import os
 
 
 here = os.path.abspath(os.path.dirname(__file__))
-pkg_name = 'ugh'
+pkg_name = 'rela'
 
 
 def long_description():

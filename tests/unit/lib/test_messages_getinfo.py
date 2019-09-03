@@ -1,8 +1,8 @@
-from ugh.lib import user
-from ugh.lib import crypto
-from ugh.lib.messages.getinfo import GetInfo, GetInfoLocation, GetInfoResp,\
+from rela.lib import user
+from rela.lib import crypto
+from rela.lib.messages.getinfo import GetInfo, GetInfoLocation, GetInfoResp,\
     GetInfoRespErr, GetInfoRespLocation
-from ugh.lib.messages import EncryptedMessage, Stub
+from rela.lib.messages import EncryptedMessage, Stub
 
 SK = crypto.Seckey((28379873947).to_bytes(32, byteorder='big'))
 U = user.User('Foo', SK.pubkey, rowid=420)

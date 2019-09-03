@@ -1,5 +1,5 @@
-from ugh.lib.messages import Stub, SignedMessage, EncryptedMessage
-from ugh.lib.crypto import Seckey, Enckey
+from rela.lib.messages import Stub, SignedMessage, EncryptedMessage
+from rela.lib.crypto import Seckey, Enckey
 import pytest
 import nacl
 
@@ -75,7 +75,7 @@ def test_encryptedmessage_crypt_identity_2():
 
 
 def test_encryptedmessage_crypt_identity_3():
-    # EncryptedMessage can store a EncryptedMessage, though at the time of
+    # EncryptedMessage can store a EncryptedMessage, thorela at the time of
     # writing, there's no need for this. It's just for completeness
     ek_sub = Enckey.gen()
     m_in = EncryptedMessage.enc(Stub(29874), ek_sub)

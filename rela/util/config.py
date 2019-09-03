@@ -50,7 +50,7 @@ def get_config(args):
 
 
 def configure_logging(args, conf):
-    LOGGER = 'logger_ugh'
+    LOGGER = 'logger_rela'
     conf[LOGGER]['level'] = args.log_level.upper()
     with NamedTemporaryFile('w+t') as fd:
         conf.write(fd)

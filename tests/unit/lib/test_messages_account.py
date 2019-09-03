@@ -1,7 +1,7 @@
-from ugh.lib.messages import account
-from ugh.lib.messages import Message, SignedMessage, EncryptedMessage, Stub
-from ugh.lib.user import User
-from ugh.lib.crypto import Pubkey, Seckey, Enckey
+from rela.lib.messages import account
+from rela.lib.messages import Message, SignedMessage, EncryptedMessage, Stub
+from rela.lib.user import User
+from rela.lib.crypto import Pubkey, Seckey, Enckey
 from base64 import b64encode, b64decode
 import time
 

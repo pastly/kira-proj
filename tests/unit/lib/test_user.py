@@ -1,5 +1,5 @@
-from ugh.lib.user import User
-from ugh.lib.crypto import Pubkey
+from rela.lib.user import User
+from rela.lib.crypto import Pubkey
 from base64 import b64encode
 
 PK_VALS = {

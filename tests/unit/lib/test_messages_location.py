@@ -1,10 +1,10 @@
-from ugh.lib.messages.location import LocationUpdate, LocationUpdateResp,\
+from rela.lib.messages.location import LocationUpdate, LocationUpdateResp,\
     LocationUpdateRespErr
-from ugh.lib.messages.account import AccountCred
-from ugh.lib.messages import EncryptedMessage, Stub
-from ugh.lib.location import Location, Coords
-from ugh.lib.user import User
-from ugh.lib.crypto import Pubkey, Enckey
+from rela.lib.messages.account import AccountCred
+from rela.lib.messages import EncryptedMessage, Stub
+from rela.lib.location import Location, Coords
+from rela.lib.user import User
+from rela.lib.crypto import Pubkey, Enckey
 import time
 
 U = User('Foo', Pubkey((1).to_bytes(32, byteorder='big')), rowid=420)

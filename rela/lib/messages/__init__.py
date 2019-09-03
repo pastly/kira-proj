@@ -48,7 +48,7 @@ class MessageType(Enum):
 class Message:
     @staticmethod
     def from_dict(d: dict) -> Optional['Message']:
-        from ugh.lib.messages import account, location, getinfo
+        from rela.lib.messages import account, location, getinfo
         ty = MessageType(d['type'])
         del d['type']
         return {  # type: ignore
@@ -85,7 +85,7 @@ class Message:
         }[ty](d)
 
     def to_dict(self) -> dict:
-        from ugh.lib.messages import account, location, getinfo
+        from rela.lib.messages import account, location, getinfo
         return {
             'version': CUR_VERSION,
             'type': {

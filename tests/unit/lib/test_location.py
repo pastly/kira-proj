@@ -1,6 +1,6 @@
-from ugh.lib.location import Coords, Location
-from ugh.lib.user import User
-from ugh.lib.crypto import Pubkey
+from rela.lib.location import Coords, Location
+from rela.lib.user import User
+from rela.lib.crypto import Pubkey
 import pytest
 import time
 
