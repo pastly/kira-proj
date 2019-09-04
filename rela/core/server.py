@@ -250,6 +250,15 @@ def r_account_create():
     return resp.to_dict()
 
 
+@app.route('/account/challenge/gen', methods=['POST'])
+def r_account_challenge_gen():
+    if flask.request.content_type != 'application/json':
+        return bad_req_not_json()
+    req = Message.from_dict(flask.request.json)
+    resp = handle_authreq(flask.g.db, req)
+    return resp.to_dict()
+
+
 @app.route('/location/update', methods=['POST'])
 def r_location_update():
     if flask.request.content_type != 'application/json':

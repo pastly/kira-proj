@@ -57,6 +57,7 @@ def test_all_not_json(client):
         '/account/create',
         '/location/update',
         '/getinfo/location',
+        '/account/challenge/gen',
     ]
     for route in ROUTES:
         rv = client.post(route, data=b'foo')
@@ -101,3 +102,20 @@ def test_getinfo_location(client):
     assert resp.err is None
     assert len(resp.locs) == 1
     assert resp.locs[0] == loc
+
+
+def test_account_challenge_gen(client):
+    u = db.user_with_pk(flask.g.db, U1.pk)
+    req = SignedMessage.sign(account.AuthReq(u.pk), SK1)
+    rv = client.post(
+        '/account/challenge/gen',
+        json=req.to_dict(),
+    )
+    assert rv.status_code == 200
+    eresp = Message.from_dict(rv.json)
+    assert isinstance(eresp, EncryptedMessage)
+    sresp = EncryptedMessage.dec(eresp, server.ENCKEY)
+    resp, pk_used = sresp.unwrap()
+    assert isinstance(resp, account.AuthChallenge)
+    assert pk_used == server.IDKEY.pubkey
+    assert resp.user == u
