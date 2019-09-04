@@ -1,9 +1,9 @@
 from base64 import b64encode, b64decode
 from ..user import User
 from ..crypto import Pubkey
-from . import Message, EncryptedMessage
+from . import Message, EncryptedMessage, SignedMessageErr
 import logging
-from typing import Optional
+from typing import Optional, Union
 from enum import Enum
 import time
 
@@ -43,16 +43,17 @@ class AccountReq(Message):
 class AuthRespErr(Enum):
     BadSig = 'The signature is invalid'
     PubkeyExists = 'A user with that pubkey already exists'
-    Malformed = 'Message was not a valid AccountReq'
+    Malformed = 'Message was not a valid AccountReq or AuthReq'
     WrongPubkey = 'Message signed with Seckey other than one associated with '\
         'given Pubkey'
+    NoSuchUser = 'A user with the given pubkey does not exist'
 
 
 class AuthResp(Message):
     def __init__(
             self,
             cred: Optional[EncryptedMessage],
-            err: Optional[AuthRespErr]):
+            err: Optional[Union[SignedMessageErr, AuthRespErr]]):
         if err is None:
             assert cred is not None
         else:

@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 app = flask.Flask(__name__)
 DEF_SCHEMA = user.DB_SCHEMA + loca.DB_SCHEMA
 
+AUTH_CHAL_LIFETIME: float = 15  # 15 seconds
 CRED_LIFETIME: float = 60 * 5  # 5 minutes, in seconds
 IDKEY: crypto.Seckey
 ENCKEY: crypto.Enckey
@@ -40,6 +41,15 @@ def refresh_credential(cred: account.AccountCred) -> EncryptedMessage:
     scred = SignedMessage.sign(cred, IDKEY)
     ecred = EncryptedMessage.enc(scred, ENCKEY)
     return ecred
+
+
+def generate_auth_challenge(u: user.User) -> EncryptedMessage:
+    assert u.rowid is not None
+    expire = time.time() + AUTH_CHAL_LIFETIME
+    chal = account.AuthChallenge(u, expire)
+    schal = SignedMessage.sign(chal, IDKEY)
+    echal = EncryptedMessage.enc(schal, ENCKEY)
+    return echal
 
 
 def validate_credential(ecred: EncryptedMessage, user: user.User) -> \
@@ -157,11 +167,45 @@ def handle_getinfo_location(
         req: getinfo.GetInfoLocation) -> \
         getinfo.GetInfoResp:
     u = db.user_with_pk(db_conn, req.user_pk)
+    # TODO we should actually expect a signed message containing
+    # GetInfoLocation and then verify the cred within is valid now and for the
+    # user who signed the message
+    # TODO should probably return error to user instead of assert here???
     assert isinstance(u, user.User)
     locs = list(itertools.islice(
         db.locations_for_user(db_conn, u, reverse=req.newest),
         0, req.count))
     return getinfo.GetInfoRespLocation(locs, None)
+
+
+def handle_authreq(
+        db_conn: sqlite3.Connection,
+        smsg: SignedMessage) -> \
+        Union[account.AuthResp, EncryptedMessage]:
+    # verify the signed message and extract its contents
+    if not smsg.is_valid():
+        return account.AuthResp(None, SignedMessageErr.BadSig)
+    req, pk_used = smsg.unwrap()
+    # if not an AuthReq, return early
+    if not isinstance(req, account.AuthReq):
+        return account.AuthResp(None, account.AuthRespErr.Malformed)
+    # make sure we know the user who made the SignedMessage
+    u = db.user_with_pk(db_conn, pk_used)
+    if u is None:
+        return account.AuthResp(None, SignedMessageErr.UnknownUser)
+    assert u is not None
+    assert isinstance(u, user.User)
+    # make sure they are asking to auth as the same user as who signed the
+    # message (probably not actually necessary for the user to sign something
+    # containing their own pubkey, but that's how it works ...)
+    if pk_used != req.user_pk:
+        return account.AuthResp(None, account.AuthRespErr.WrongPubkey)
+    # this should be a given as the pk_used came form the signed message and we
+    # just verified that the pk in the request is the same as pk_used
+    assert u.pk == pk_used
+    assert u.pk == req.user_pk
+    # generate and return an auth challenge for them
+    return generate_auth_challenge(u)
 
 
 def main_gen_key():

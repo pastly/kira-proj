@@ -579,3 +579,62 @@ def test_getinfoloc_multiple_order_correct_4():
     for loc in gir.locs:
         assert loc.time > last_time
         last_time = loc.time
+
+
+def test_authreq_bad_sig():
+    db_conn = get_db()
+    pk = crypto.Pubkey((2398).to_bytes(32, byteorder='big'))
+    smsg = SignedMessage.sign(account.AuthReq(pk), SK1)
+    # munge the signature data
+    smsg.msg_bytes = b'fooooo'
+    resp = server.handle_authreq(db_conn, smsg)
+    assert isinstance(resp, account.AuthResp)
+    assert resp.cred is None
+    assert resp.err == SignedMessageErr.BadSig
+
+
+def test_authreq_not_authreq():
+    db_conn = get_db()
+    # Sign something other than an AuthReq
+    smsg = SignedMessage.sign(Stub(1), SK1)
+    resp = server.handle_authreq(db_conn, smsg)
+    assert isinstance(resp, account.AuthResp)
+    assert resp.cred is None
+    assert resp.err == account.AuthRespErr.Malformed
+
+
+def test_authreq_no_user():
+    db_conn = get_db()
+    # use an unknown sk to sign the AuthReq
+    sk_unknown = crypto.Seckey((98345).to_bytes(32, byteorder='big'))
+    smsg = SignedMessage.sign(account.AuthReq(sk_unknown.pubkey), sk_unknown)
+    resp = server.handle_authreq(db_conn, smsg)
+    assert isinstance(resp, account.AuthResp)
+    assert resp.cred is None
+    assert resp.err == SignedMessageErr.UnknownUser
+
+
+def test_authreq_diff_pubkey():
+    db_conn = get_db()
+    # requesting to auth with user with pubkey from SK2, but signing message
+    # with SK1
+    smsg = SignedMessage.sign(account.AuthReq(SK2.pubkey), SK1)
+    resp = server.handle_authreq(db_conn, smsg)
+    assert isinstance(resp, account.AuthResp)
+    assert resp.cred is None
+    assert resp.err == account.AuthRespErr.WrongPubkey
+
+
+def test_authreq_happy():
+    db_conn = get_db()
+    smsg = SignedMessage.sign(account.AuthReq(SK1.pubkey), SK1)
+    resp = server.handle_authreq(db_conn, smsg)
+    assert isinstance(resp, EncryptedMessage)
+    schal = EncryptedMessage.dec(resp, server.ENCKEY)
+    assert isinstance(schal, SignedMessage)
+    assert schal.is_valid()
+    chal, pk_used = schal.unwrap()
+    assert isinstance(chal, account.AuthChallenge)
+    assert pk_used == server.IDKEY.pubkey
+    assert chal.user == db.user_with_pk(db_conn, chal.user.pk)
+    assert chal.expire > time.time()
