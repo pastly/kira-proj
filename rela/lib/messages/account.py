@@ -1,7 +1,7 @@
 from base64 import b64encode, b64decode
 from ..user import User
 from ..crypto import Pubkey
-from . import Message, EncryptedMessage, SignedMessageErr
+from . import Message, EncryptedMessage, SignedMessageErr, CredChalErr
 import logging
 from typing import Optional, Union
 from enum import Enum
@@ -53,7 +53,7 @@ class AuthResp(Message):
     def __init__(
             self,
             cred: Optional[EncryptedMessage],
-            err: Optional[Union[SignedMessageErr, AuthRespErr]]):
+            err: Optional[Union[SignedMessageErr, AuthRespErr, CredChalErr]]):
         if err is None:
             assert cred is not None
         else:

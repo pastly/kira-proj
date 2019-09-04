@@ -21,10 +21,12 @@ class SignedMessageErr(MessageErr):
     UnknownUser = 'The pubkey that signed this request is unknown'
 
 
-class CredErr(MessageErr):
-    Malformed = 'Message was not a valid AccountCred'
-    BadCred = 'AccountCred is not valid right now or wasn\'t made by us'
-    WrongUser = 'AccountCred is for a user other than the expected one'
+class CredChalErr(MessageErr):
+    Malformed = 'Message was not a valid AccountCred or AuthChallenge'
+    BadCred = 'AccountCred or AuthChallenge is not valid right now or '\
+        'wasn\'t made by us'
+    WrongUser = 'AccountCred or AuthChallenge is for a user other than '\
+        'the expected one'
 
 
 class MessageType(Enum):

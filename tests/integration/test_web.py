@@ -48,7 +48,7 @@ def test_account_create_happy(client):
     user_db = db.user_with_pk(flask.g.db, sk.pubkey)
     assert user_db.nick == 'Saul3'
     assert user_db.pk == sk.pubkey
-    valid_cred, _ = server.validate_credential(resp.cred, user_db)
+    valid_cred, _ = server.validate_credchal(resp.cred, user_db)
     assert valid_cred
 
 
@@ -79,7 +79,7 @@ def test_location_update_happy(client):
     resp = Message.from_dict(rv.json)
     assert isinstance(resp, location.LocationUpdateResp)
     assert resp.err is None
-    valid_cred, _ = server.validate_credential(resp.cred, u)
+    valid_cred, _ = server.validate_credchal(resp.cred, u)
     assert valid_cred
 
 

@@ -11,7 +11,7 @@ from ..lib import location as loca
 from ..lib import crypto
 from ..lib.messages import account, location, getinfo
 from ..lib.messages import SignedMessage, EncryptedMessage, SignedMessageErr,\
-    CredErr, Message
+    CredChalErr, Message
 import time
 from typing import Tuple, Union
 
@@ -36,6 +36,13 @@ def gen_parser(sub):
         'Generate an identity key, print it, and quit.')
 
 
+def generate_credential(user: user.User) -> EncryptedMessage:
+    cred = account.AccountCred.gen(user, CRED_LIFETIME)
+    scred = SignedMessage.sign(cred, IDKEY)
+    ecred = EncryptedMessage.enc(scred, ENCKEY)
+    return ecred
+
+
 def refresh_credential(cred: account.AccountCred) -> EncryptedMessage:
     cred.expire = time.time() + CRED_LIFETIME
     scred = SignedMessage.sign(cred, IDKEY)
@@ -52,34 +59,37 @@ def generate_auth_challenge(u: user.User) -> EncryptedMessage:
     return echal
 
 
-def validate_credential(ecred: EncryptedMessage, user: user.User) -> \
-        Tuple[bool, Union[account.AccountCred, CredErr]]:
+def validate_credchal(ecred: EncryptedMessage, user: user.User) -> \
+        Tuple[bool,
+              Union[account.AccountCred, account.AuthChallenge, CredChalErr]]:
     # Caller must at least make sure the given message is an EncryptedMessage
     assert isinstance(ecred, EncryptedMessage)
     # make sure it was encrypted by us (will be None if it wasn't)
     scred = ecred.try_dec(ENCKEY)
     # make sure it contains a signed message
     if scred is None or not isinstance(scred, SignedMessage):
-        return False, CredErr.Malformed
+        return False, CredChalErr.Malformed
     assert isinstance(scred, SignedMessage)
     # make sure the signature is valid
     if not scred.is_valid():
-        return False, CredErr.Malformed
+        return False, CredChalErr.Malformed
     cred, cred_pk = scred.unwrap()
-    # make sure the contained cred is actually an AccountCred
-    if not isinstance(cred, account.AccountCred):
-        return False, CredErr.Malformed
-    assert isinstance(cred, account.AccountCred)
+    # make sure the contained cred is actually an AccountCred or AuthChallenge
+    if not isinstance(cred, account.AccountCred) \
+            and not isinstance(cred, account.AuthChallenge):
+        return False, CredChalErr.Malformed
+    assert isinstance(cred, account.AccountCred) \
+        or isinstance(cred, account.AuthChallenge)
     assert isinstance(cred_pk, crypto.Pubkey)
     # make sure it was signed by us
     if not cred_pk == IDKEY.pubkey:
-        return False, CredErr.BadCred
+        return False, CredChalErr.BadCred
     # make sure it hasn't expired
     if time.time() > cred.expire:
-        return False, CredErr.BadCred
+        return False, CredChalErr.BadCred
     # make sure credit is for correct user
     if cred.user != user:
-        return False, CredErr.WrongUser
+        return False, CredChalErr.WrongUser
     # all good, yo
     return True, cred
 
@@ -101,10 +111,7 @@ def handle_account_request(
             None, account.AuthRespErr.PubkeyExists)
     u = user.User(req.nick, req.pk)
     u = db.insert_user(db_conn, u)
-    cred = account.AccountCred.gen(u, CRED_LIFETIME)
-    scred = SignedMessage.sign(cred, IDKEY)
-    ecred = EncryptedMessage.enc(scred, ENCKEY)
-    return account.AuthResp(ecred, None)
+    return account.AuthResp(generate_credential(u), None)
 
 
 def handle_location_update(
@@ -122,9 +129,9 @@ def handle_location_update(
     # OK to assert on this as we should not have been able to contract a
     # LocationUpdate if its cred isn't a valid EncryptedMessage
     assert isinstance(loc_update.cred, EncryptedMessage)
-    valid_cred, cred_or_err = validate_credential(loc_update.cred, user)
+    valid_cred, cred_or_err = validate_credchal(loc_update.cred, user)
     if not valid_cred:
-        assert isinstance(cred_or_err, CredErr)
+        assert isinstance(cred_or_err, CredChalErr)
         return location.LocationUpdateResp(None, cred_or_err)
     assert isinstance(cred_or_err, account.AccountCred)
     db.insert_location(db_conn, loc_update.loc)
@@ -145,9 +152,9 @@ def handle_getinfo(
     # OK to assert on this as we should not have been able to contract a
     # GetInfo if its cred isn't a valid EncryptedMessage
     assert isinstance(gi_req.cred, EncryptedMessage)
-    valid_cred, cred_or_err = validate_credential(gi_req.cred, user)
+    valid_cred, cred_or_err = validate_credchal(gi_req.cred, user)
     if not valid_cred:
-        assert isinstance(cred_or_err, CredErr)
+        assert isinstance(cred_or_err, CredChalErr)
         return getinfo.GetInfoResp(cred_or_err)
     assert isinstance(cred_or_err, account.AccountCred)
     user_in_req = db.user_with_pk(db_conn, gi_req.user_pk)
@@ -206,6 +213,34 @@ def handle_authreq(
     assert u.pk == req.user_pk
     # generate and return an auth challenge for them
     return generate_auth_challenge(u)
+
+
+def handle_authchallengeresp(
+        db_conn: sqlite3.Connection,
+        smsg: SignedMessage) -> \
+        Union[account.AuthResp, EncryptedMessage]:
+    # verify the signed message and extract its contents
+    if not smsg.is_valid():
+        return account.AuthResp(None, SignedMessageErr.BadSig)
+    req, pk_used = smsg.unwrap()
+    # if not an AuthChallengeResp, return early
+    if not isinstance(req, account.AuthChallengeResp):
+        return account.AuthResp(None, account.AuthRespErr.Malformed)
+    # make sure we know the user who made the SignedMessage
+    u = db.user_with_pk(db_conn, pk_used)
+    if u is None:
+        return account.AuthResp(None, SignedMessageErr.UnknownUser)
+    assert u is not None
+    assert isinstance(u, user.User)
+    # OK to assert on this bc we should not have been able to create
+    # AuthChallengeResp if it didn't contain an EncryptedMessage
+    assert isinstance(req.enc_chal, EncryptedMessage)
+    valid_chal, chal_or_err = validate_credchal(req.enc_chal, u)
+    if not valid_chal:
+        assert isinstance(chal_or_err, CredChalErr)
+        return account.AuthResp(None, chal_or_err)
+    assert isinstance(chal_or_err, account.AuthChallenge)
+    return account.AuthResp(generate_credential(u), None)
 
 
 def main_gen_key():

@@ -2,12 +2,13 @@ from rela.lib import db
 from rela.lib import user
 from rela.lib import crypto
 from rela.lib import location as loca
-from rela.lib.messages import Stub, SignedMessage, EncryptedMessage, CredErr,\
-    SignedMessageErr
+from rela.lib.messages import Stub, SignedMessage, EncryptedMessage, \
+    CredChalErr, SignedMessageErr
 from rela.lib.messages import account, getinfo, location
 from rela.core import server
 import time
 import random
+from typing import Union, Type
 
 
 SK1 = crypto.Seckey((111).to_bytes(32, byteorder='big'))
@@ -46,8 +47,10 @@ def insert_many_locs(db_conn, user):
     return count
 
 
-def get_cred(
+def get_credchal(
         u: user.User,
+        cls: Type[Union[account.AccountCred, account.AuthChallenge]],
+        expire: float,
         scred_stub: bool = False,
         scred_munge: bool = False,
         cred_stub: bool = False,
@@ -58,7 +61,7 @@ def get_cred(
     if scred_stub:
         ecred = EncryptedMessage.enc(Stub(34444), server.ENCKEY)
     elif scred_munge:
-        cred = account.AccountCred(u, time.time() + server.CRED_LIFETIME)
+        cred = cls(u, expire)
         scred = SignedMessage.sign(cred, server.IDKEY)
         scred.msg_bytes = b'fooooo'
         ecred = EncryptedMessage.enc(scred, server.ENCKEY)
@@ -67,24 +70,36 @@ def get_cred(
         ecred = EncryptedMessage.enc(scred, server.ENCKEY)
     elif cred_wrong_key:
         sk = crypto.Seckey((9879).to_bytes(32, byteorder='big'))
-        cred = account.AccountCred(u, time.time() + server.CRED_LIFETIME)
+        cred = cls(u, expire)
         scred = SignedMessage.sign(cred, sk)
         ecred = EncryptedMessage.enc(scred, server.ENCKEY)
     elif cred_expired:
-        cred = account.AccountCred(u, time.time() - 0.00001)
+        cred = cls(u, time.time() - 0.00001)
         scred = SignedMessage.sign(cred, server.IDKEY)
         ecred = EncryptedMessage.enc(scred, server.ENCKEY)
     elif cred_wrong_user:
         assert u != U2
         fake_u = user.User(U2.nick, U2.pk, rowid=11)
-        cred = account.AccountCred(fake_u, time.time() + server.CRED_LIFETIME)
+        cred = cls(fake_u, expire)
         scred = SignedMessage.sign(cred, server.IDKEY)
         ecred = EncryptedMessage.enc(scred, server.ENCKEY)
     else:
-        cred = account.AccountCred(u, time.time() + server.CRED_LIFETIME)
+        cred = cls(u, expire)
         scred = SignedMessage.sign(cred, server.IDKEY)
         ecred = EncryptedMessage.enc(scred, server.ENCKEY)
     return ecred
+
+
+def get_cred(u: user.User, **kw):
+    return get_credchal(
+        u, account.AccountCred,
+        time.time() + server.CRED_LIFETIME, **kw)
+
+
+def get_chal(u: user.User, **kw):
+    return get_credchal(
+        u, account.AuthChallenge,
+        time.time() + server.AUTH_CHAL_LIFETIME, **kw)
 
 
 def expire_from_ecred(
@@ -256,7 +271,7 @@ def test_location_update_badecred_2():
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
     assert resp.cred is None  # TODO
-    assert resp.err == CredErr.Malformed
+    assert resp.err == CredChalErr.Malformed
 
 
 def test_location_update_badecred_3():
@@ -271,7 +286,7 @@ def test_location_update_badecred_3():
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
     assert resp.cred is None  # TODO
-    assert resp.err == CredErr.Malformed
+    assert resp.err == CredChalErr.Malformed
 
 
 def test_location_update_badscred_1():
@@ -285,7 +300,7 @@ def test_location_update_badscred_1():
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
     assert resp.cred is None  # TODO
-    assert resp.err == CredErr.Malformed
+    assert resp.err == CredChalErr.Malformed
 
 
 def test_location_update_badscred_2():
@@ -299,7 +314,7 @@ def test_location_update_badscred_2():
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
     assert resp.cred is None  # TODO
-    assert resp.err == CredErr.Malformed
+    assert resp.err == CredChalErr.Malformed
 
 
 def test_location_update_badcred_1():
@@ -314,7 +329,7 @@ def test_location_update_badcred_1():
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
     assert resp.cred is None  # TODO
-    assert resp.err == CredErr.Malformed
+    assert resp.err == CredChalErr.Malformed
 
 
 def test_location_update_badcred_2():
@@ -329,7 +344,7 @@ def test_location_update_badcred_2():
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
     assert resp.cred is None  # TODO
-    assert resp.err == CredErr.BadCred
+    assert resp.err == CredChalErr.BadCred
 
 
 def test_location_update_expired_cred():
@@ -343,7 +358,7 @@ def test_location_update_expired_cred():
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
     assert resp.cred is None  # TODO
-    assert resp.err == CredErr.BadCred
+    assert resp.err == CredChalErr.BadCred
 
 
 def test_location_update_wrong_user():
@@ -357,7 +372,7 @@ def test_location_update_wrong_user():
     resp = server.handle_location_update(db_conn, slu)
     assert not resp.ok
     assert resp.cred is None  # TODO
-    assert resp.err == CredErr.WrongUser
+    assert resp.err == CredChalErr.WrongUser
 
 
 def test_location_update_unknown_user():
@@ -421,7 +436,7 @@ def test_getinfo_badcred():
     gir = server.handle_getinfo(db_conn, gi)
     assert isinstance(gir, getinfo.GetInfoResp)
     assert not gir.ok
-    assert gir.err == CredErr.Malformed
+    assert gir.err == CredChalErr.Malformed
 
 
 def test_getinfo_unknown_user_in_req():
@@ -638,3 +653,135 @@ def test_authreq_happy():
     assert pk_used == server.IDKEY.pubkey
     assert chal.user == db.user_with_pk(db_conn, chal.user.pk)
     assert chal.expire > time.time()
+
+
+def test_authchallengeresp_bad_sig():
+    db_conn = get_db()
+    pk = crypto.Pubkey((2398).to_bytes(32, byteorder='big'))
+    smsg = SignedMessage.sign(account.AuthReq(pk), SK1)
+    # munge the signature data
+    smsg.msg_bytes = b'fooooo'
+    resp = server.handle_authchallengeresp(db_conn, smsg)
+    assert isinstance(resp, account.AuthResp)
+    assert resp.cred is None
+    assert resp.err == SignedMessageErr.BadSig
+
+
+def test_authchallengeresp_not_authreq():
+    db_conn = get_db()
+    # Sign something other than an AuthChallengeResp
+    smsg = SignedMessage.sign(Stub(1), SK1)
+    resp = server.handle_authchallengeresp(db_conn, smsg)
+    assert isinstance(resp, account.AuthResp)
+    assert resp.cred is None
+    assert resp.err == account.AuthRespErr.Malformed
+
+
+def test_authchallengeresp_no_user():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    echal = get_chal(u)
+    # use an unknown sk to sign the AuthChallengeResp
+    sk_unknown = crypto.Seckey((98345).to_bytes(32, byteorder='big'))
+    smsg = SignedMessage.sign(
+        account.AuthChallengeResp(echal), sk_unknown)
+    resp = server.handle_authchallengeresp(db_conn, smsg)
+    assert isinstance(resp, account.AuthResp)
+    assert resp.cred is None
+    assert resp.err == SignedMessageErr.UnknownUser
+
+
+def test_authchallengeresp_bad_chal():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    echal = get_chal(u)
+    # use an unknown sk to sign the AuthChallengeResp
+    sk_unknown = crypto.Seckey((98345).to_bytes(32, byteorder='big'))
+    smsg = SignedMessage.sign(
+        account.AuthChallengeResp(echal), sk_unknown)
+    resp = server.handle_authchallengeresp(db_conn, smsg)
+    assert isinstance(resp, account.AuthResp)
+    assert resp.cred is None
+    assert resp.err == SignedMessageErr.UnknownUser
+
+
+def test_authchallengeresp_badscred_1():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    # echal is correct but contains a Stub instead of SignedMessage
+    echal = get_chal(u, scred_stub=True)
+    sacr = SignedMessage.sign(account.AuthChallengeResp(echal), SK1)
+    resp = server.handle_authchallengeresp(db_conn, sacr)
+    assert resp.cred is None
+    assert resp.err == CredChalErr.Malformed
+
+
+def test_authchallengeresp_badscred_2():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    # echal is correct but contains a broken SignedMessage
+    echal = get_chal(u, scred_munge=True)
+    sacr = SignedMessage.sign(account.AuthChallengeResp(echal), SK1)
+    resp = server.handle_authchallengeresp(db_conn, sacr)
+    assert resp.cred is None
+    assert resp.err == CredChalErr.Malformed
+
+
+def test_authchallengeresp_badcred_1():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    # echal is correct and contains good SignedMessage, but the SignedMessage
+    # contains a Stub
+    echal = get_chal(u, cred_stub=True)
+    sacr = SignedMessage.sign(account.AuthChallengeResp(echal), SK1)
+    resp = server.handle_authchallengeresp(db_conn, sacr)
+    assert resp.cred is None
+    assert resp.err == CredChalErr.Malformed
+
+
+def test_authchallengeresp_badcred_2():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    # echal is correct and contains good SignedMessage, but the SignedMessage
+    # is signed by the wrong key
+    echal = get_chal(u, cred_wrong_key=True)
+    sacr = SignedMessage.sign(account.AuthChallengeResp(echal), SK1)
+    resp = server.handle_authchallengeresp(db_conn, sacr)
+    assert resp.cred is None
+    assert resp.err == CredChalErr.BadCred
+
+
+def test_authchallengeresp_expired_cred():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    # echal is expired
+    echal = get_chal(u, cred_expired=True)
+    sacr = SignedMessage.sign(account.AuthChallengeResp(echal), SK1)
+    resp = server.handle_authchallengeresp(db_conn, sacr)
+    assert resp.cred is None
+    assert resp.err == CredChalErr.BadCred
+
+
+def test_authchallengeresp_wrong_user():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    # challenge is for a user other than the one who signed the message
+    echal = get_chal(u, cred_wrong_user=True)
+    sacr = SignedMessage.sign(account.AuthChallengeResp(echal), SK1)
+    resp = server.handle_authchallengeresp(db_conn, sacr)
+    assert resp.cred is None
+    assert resp.err == CredChalErr.WrongUser
+
+
+def test_authchallengeresp_happy():
+    db_conn = get_db()
+    u = db.user_with_pk(db_conn, U1.pk)
+    echal = get_chal(u)
+    sacr = SignedMessage.sign(account.AuthChallengeResp(echal), SK1)
+    resp = server.handle_authchallengeresp(db_conn, sacr)
+    assert resp.err is None
+    assert isinstance(resp.cred, EncryptedMessage)
+    scred = EncryptedMessage.dec(resp.cred, server.ENCKEY)
+    cred, pk_used = SignedMessage.unwrap(scred)
+    assert pk_used == server.IDKEY.pubkey
+    assert cred.expire > time.time()
