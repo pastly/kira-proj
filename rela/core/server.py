@@ -294,6 +294,15 @@ def r_account_challenge_gen():
     return resp.to_dict()
 
 
+@app.route('/account/challenge/verify', methods=['POST'])
+def r_account_challenge_verify():
+    if flask.request.content_type != 'application/json':
+        return bad_req_not_json()
+    req = Message.from_dict(flask.request.json)
+    resp = handle_authchallengeresp(flask.g.db, req)
+    return resp.to_dict()
+
+
 @app.route('/location/update', methods=['POST'])
 def r_location_update():
     if flask.request.content_type != 'application/json':

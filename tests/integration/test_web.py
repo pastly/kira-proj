@@ -58,6 +58,7 @@ def test_all_not_json(client):
         '/location/update',
         '/getinfo/location',
         '/account/challenge/gen',
+        '/account/challenge/verify',
     ]
     for route in ROUTES:
         rv = client.post(route, data=b'foo')
@@ -119,3 +120,55 @@ def test_account_challenge_gen(client):
     assert isinstance(resp, account.AuthChallenge)
     assert pk_used == server.IDKEY.pubkey
     assert resp.user == u
+
+
+def test_account_challenge_verify(client):
+    u = db.user_with_pk(flask.g.db, U1.pk)
+    echal = server.generate_auth_challenge(u)
+    req = SignedMessage.sign(account.AuthChallengeResp(echal), SK1)
+    rv = client.post(
+        '/account/challenge/verify',
+        json=req.to_dict(),
+    )
+    assert rv.status_code == 200
+    resp = Message.from_dict(rv.json)
+    assert isinstance(resp, account.AuthResp)
+    assert resp.err is None
+    assert isinstance(resp.cred, EncryptedMessage)
+    scred = EncryptedMessage.dec(resp.cred, server.ENCKEY)
+    assert scred.is_valid()
+    cred, pk_used = scred.unwrap()
+    assert pk_used == server.IDKEY.pubkey
+    assert cred.user == u
+    assert cred.expire > time.time()
+
+
+def test_account_full_auth_handshake(client):
+    u = db.user_with_pk(flask.g.db, U1.pk)
+    req1 = SignedMessage.sign(account.AuthReq(u.pk), SK1)
+    rv1 = client.post(
+        '/account/challenge/gen',
+        json=req1.to_dict(),
+    )
+    assert rv1.status_code == 200
+    echal = Message.from_dict(rv1.json)
+    assert isinstance(echal, EncryptedMessage)
+    schal = EncryptedMessage.dec(echal, server.ENCKEY)
+    assert schal.is_valid()
+    chal, pk_used = schal.unwrap()
+    assert isinstance(chal, account.AuthChallenge)
+    assert pk_used == server.IDKEY.pubkey
+    req2 = SignedMessage.sign(account.AuthChallengeResp(echal), SK1)
+    rv2 = client.post(
+        '/account/challenge/verify',
+        json=req2.to_dict(),
+    )
+    assert rv2.status_code == 200
+    resp = Message.from_dict(rv2.json)
+    assert resp.err is None
+    assert isinstance(resp.cred, EncryptedMessage)
+    scred = EncryptedMessage.dec(resp.cred, server.ENCKEY)
+    assert scred.is_valid()
+    cred, pk_used = scred.unwrap()
+    assert isinstance(cred, account.AccountCred)
+    assert pk_used == server.IDKEY.pubkey
