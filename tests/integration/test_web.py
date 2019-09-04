@@ -56,6 +56,7 @@ def test_all_not_json(client):
     ROUTES = [
         '/account/create',
         '/location/update',
+        '/getinfo/location',
     ]
     for route in ROUTES:
         rv = client.post(route, data=b'foo')
